@@ -48,15 +48,18 @@ Add the applet to the panel, then lock to see lock-screen Clawd.
 
 ```
 clawd-cinnamon/
-├── applet/                     # Cinnamon GJS applet
-│   ├── applet.js               # Main applet — drawing, animations, menu, fetch
+├── applet/                     # Cinnamon GJS panel applet (Cinnamon only)
+│   ├── applet.js
 │   ├── metadata.json
 │   ├── settings-schema.json
 │   ├── stylesheet.css
-│   └── fetch-usage.sh          # Wrapper that calls /api/oauth/usage
-├── lockscreen/                 # cinnamon-screensaver widget (user-space hook)
-│   ├── usercustomize.py        # site-package hook — patches Stage class
+│   └── fetch-usage.sh          # Calls /api/oauth/usage
+├── lockscreen/                 # cinnamon-screensaver hook (Cinnamon only)
+│   ├── usercustomize.py        # site-packages hook — patches Stage class
 │   └── clawd_widget_user.py    # GTK/Cairo Clawd widget
+├── standalone/                 # Cross-DE floating GTK window (anywhere)
+│   ├── clawd.py                # The whole app — run it directly
+│   └── fetch-usage.sh
 └── install/
     ├── install-applet.sh
     ├── install-lockscreen.sh
@@ -89,7 +92,26 @@ currently locked.
 - Python 3 + GTK 3 (already installed by Cinnamon)
 - A Claude Code session — credentials are read from `~/.claude/.credentials.json`
 
-## Distro compatibility
+## Cross-DE: standalone window
+
+If you don't run Cinnamon, the panel applet and lock-screen widget won't
+load. Use the **standalone GTK app** instead — it's a regular floating
+window that runs on any Linux desktop (GNOME, KDE, XFCE, MATE, Sway, …)
+as long as you have Python 3 + GTK 3 (most distros do by default).
+
+```bash
+./standalone/clawd.py                # default
+./standalone/clawd.py --keep-above   # stay on top
+./standalone/clawd.py --sticky       # show on every workspace
+./standalone/clawd.py --refresh 600  # refresh every N seconds (min 60)
+```
+
+The window shows animated Clawd, your session %, week %, week-Sonnet %,
+extra credits, and a status line with "Updated X ago". Same animations as
+the Cinnamon panel applet (bounce, wiggle, squish, walk, morph, glitch,
+wink, yawn, lookAround) and the same random speech-bubble messages.
+
+## Cinnamon-specific: panel applet + lock screen
 
 This is **Cinnamon-specific, not Mint-specific**. Tested on Linux Mint 22.x
 (Cinnamon 6.6.7) but should work on any distro that ships Cinnamon:
