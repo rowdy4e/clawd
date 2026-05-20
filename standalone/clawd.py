@@ -20,6 +20,7 @@ import os
 import random
 import subprocess
 import sys
+import tempfile
 from datetime import datetime, timezone
 
 import cairo
@@ -181,9 +182,10 @@ def _find_fetch_script():
 
 # ──────────────── main window ────────────────
 class ClawdStandalone(Gtk.Window):
-    def __init__(self, args):
+    def __init__(self, args, _quit_on_destroy=True):
         super().__init__(title="Clawd — Claude Usage")
         self.args = args
+        self._quit_on_destroy = _quit_on_destroy
         self.set_default_size(480, 380)
         self.set_position(Gtk.WindowPosition.CENTER)
         if args.keep_above: self.set_keep_above(True)
@@ -293,7 +295,8 @@ class ClawdStandalone(Gtk.Window):
             if tid:
                 try: GLib.source_remove(tid)
                 except Exception: pass
-        Gtk.main_quit()
+        if self._quit_on_destroy:
+            Gtk.main_quit()
 
     # ──────────────── usage fetching ────────────────
     def _auto_refresh(self):
@@ -789,17 +792,139 @@ class ClawdStandalone(Gtk.Window):
             print("bubble error:", e)
 
 
+# ──────────────── Tray-icon renderer ────────────────
+def render_clawd_icon(path, size=64):
+    """Render a static Clawd PNG suitable for a panel tray icon."""
+    surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, size, size)
+    cr = cairo.Context(surface)
+    try: cr.set_antialias(cairo.ANTIALIAS_NONE)
+    except Exception: pass
+    # Fit Clawd into the icon — bitmap is 18×6 logical pixels (3:1 ratio).
+    px = max(1, (size - 4) // COLS)
+    py = px  # square pixels in the icon (it's tiny, no aspect tricks)
+    bitmap_w = COLS * px
+    bitmap_h = ROWS * py
+    ox = (size - bitmap_w) // 2
+    oy = (size - bitmap_h) // 2
+    form = FORMS["clawd"]
+    cr.set_source_rgb(*form["color"])
+    for r, c, ch in form["bodyCells"] + form["footCells"]:
+        if ch == 'E':  # eyes stay as gaps
+            continue
+        cr.rectangle(ox + c * px, oy + r * py, px, py)
+    cr.fill()
+    surface.write_to_png(path)
+
+
+def run_tray(args):
+    """Run as a tray-icon-only process. Window is hidden but kept alive."""
+    try:
+        gi.require_version("AyatanaAppIndicator3", "0.1")
+        from gi.repository import AyatanaAppIndicator3 as AI
+    except Exception as e:
+        sys.stderr.write(
+            "Tray mode requires libayatana-appindicator. On Ubuntu/Debian:\n"
+            "  sudo apt install gir1.2-ayatanaappindicator3-0.1\n"
+            "On Fedora:\n"
+            "  sudo dnf install libayatana-appindicator-gtk3\n"
+            "\nFalling back to plain window mode.\n"
+        )
+        win = ClawdStandalone(args)
+        win.show_all()
+        Gtk.main()
+        return
+
+    # Render icon (cached in ~/.cache/clawd/)
+    icon_dir = os.path.expanduser("~/.cache/clawd")
+    os.makedirs(icon_dir, exist_ok=True)
+    icon_path = os.path.join(icon_dir, "clawd-tray.png")
+    render_clawd_icon(icon_path, size=64)
+
+    # Create the window but keep it hidden — closing X hides it, doesn't quit.
+    win = ClawdStandalone(args, _quit_on_destroy=False)
+    win.connect("delete-event", lambda w, e: (w.hide(), True)[1])
+
+    indicator = AI.Indicator.new(
+        "clawd-claude-usage",
+        icon_path,
+        AI.IndicatorCategory.APPLICATION_STATUS
+    )
+    indicator.set_status(AI.IndicatorStatus.ACTIVE)
+    indicator.set_icon_full(icon_path, "Clawd — Claude Code usage")
+    indicator.set_title("Clawd")
+
+    # Build the dropdown menu.
+    menu = Gtk.Menu()
+
+    open_item = Gtk.MenuItem(label="Open window")
+    open_item.connect("activate", lambda *_: (win.show_all(), win.present()))
+    menu.append(open_item)
+
+    refresh_item = Gtk.MenuItem(label="Refresh now")
+    refresh_item.connect("activate", lambda *_: win._refresh_usage())
+    menu.append(refresh_item)
+
+    menu.append(Gtk.SeparatorMenuItem())
+
+    # Stats rows — disabled (info-only), updated by the periodic poller.
+    session_item = Gtk.MenuItem(label="Session: —")
+    session_item.set_sensitive(False)
+    menu.append(session_item)
+    week_item = Gtk.MenuItem(label="Week: —")
+    week_item.set_sensitive(False)
+    menu.append(week_item)
+    credits_item = Gtk.MenuItem(label="Credits: —")
+    credits_item.set_sensitive(False)
+    menu.append(credits_item)
+
+    menu.append(Gtk.SeparatorMenuItem())
+
+    quit_item = Gtk.MenuItem(label="Quit")
+    quit_item.connect("activate", lambda *_: Gtk.main_quit())
+    menu.append(quit_item)
+
+    menu.show_all()
+    indicator.set_menu(menu)
+    # Left-click on the icon (if supported) opens the window.
+    try:
+        indicator.set_secondary_activate_target(open_item)
+    except Exception:
+        pass
+
+    def update_menu():
+        u = win._last_usage
+        if u:
+            if u.get("five_hour"):
+                session_item.set_label("Session: %.0f %%" % (u["five_hour"].get("utilization") or 0))
+            if u.get("seven_day"):
+                week_item.set_label("Week: %.0f %%" % (u["seven_day"].get("utilization") or 0))
+            ex = u.get("extra_usage")
+            if ex and ex.get("is_enabled"):
+                credits_item.set_label("Credits: %.0f %%" % (ex.get("utilization") or 0))
+            else:
+                credits_item.set_label("Credits: —")
+        return True
+    GLib.timeout_add_seconds(2, update_menu)
+
+    Gtk.main()
+
+
 def main():
     p = argparse.ArgumentParser(description="Clawd — standalone Claude Code usage app.")
+    p.add_argument("--tray", action="store_true",
+                   help="Run as a panel tray icon instead of a window (requires libayatana-appindicator).")
     p.add_argument("--keep-above", action="store_true", help="Stay above other windows.")
     p.add_argument("--sticky", action="store_true", help="Show on every workspace.")
     p.add_argument("--refresh", type=int, default=300, help="Refresh interval in seconds (default 300, min 60).")
     args = p.parse_args()
     args.refresh = max(60, args.refresh)
 
-    win = ClawdStandalone(args)
-    win.show_all()
-    Gtk.main()
+    if args.tray:
+        run_tray(args)
+    else:
+        win = ClawdStandalone(args)
+        win.show_all()
+        Gtk.main()
 
 
 if __name__ == "__main__":

@@ -103,16 +103,38 @@ that runs anywhere Python 3 + GTK 3 are installed.
 ```bash
 # Ubuntu / Debian / Mint / Pop!_OS:
 sudo apt install python3-gi python3-gi-cairo gir1.2-gtk-3.0
-# Fedora:
-sudo dnf install python3-gobject gtk3
-# Arch:
-sudo pacman -S python-gobject gtk3
+# Optional, for the tray icon (--tray):
+sudo apt install gir1.2-ayatanaappindicator3-0.1
 
-./standalone/clawd.py                # default
+# Fedora:
+sudo dnf install python3-gobject gtk3 libayatana-appindicator-gtk3
+# Arch:
+sudo pacman -S python-gobject gtk3 libayatana-appindicator
+
+./standalone/clawd.py                # plain window
+./standalone/clawd.py --tray         # run as panel tray icon (no window)
 ./standalone/clawd.py --keep-above   # stay on top
 ./standalone/clawd.py --sticky       # show on every workspace
 ./standalone/clawd.py --refresh 600  # refresh every N seconds (min 60)
 ```
+
+### Tray-icon mode (`--tray`)
+
+Puts a small static Clawd icon in your system tray / status area, with a
+dropdown menu containing live "Session / Week / Credits" stats plus
+"Open window" (full animation) and "Quit".
+
+Tested on:
+
+| DE | Out-of-box? |
+|---|---|
+| Cinnamon (xapp-status applet) | ✅ |
+| KDE Plasma | ✅ |
+| XFCE (xfce4-statusnotifier-plugin) | ✅ |
+| MATE | ✅ |
+| GNOME (Ubuntu — AppIndicator extension pre-installed) | ✅ |
+| GNOME (Fedora — needs ext "AppIndicator and KStatusNotifierItem Support") | ⚠ install ext |
+| Sway / Hyprland with waybar / etc. | ✅ if status-notifier module enabled |
 
 The window shows animated Clawd, your session %, week %, week-Sonnet %,
 extra credits, and a status line with "Updated X ago". Same animations as
