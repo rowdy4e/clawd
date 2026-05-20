@@ -69,45 +69,35 @@ function makeState() {
 
 // ─── LockClawd ───
 export const LockClawd = GObject.registerClass(
-class LockClawd extends St.Widget {
+class LockClawd extends St.DrawingArea {
     _init(monitor) {
+        // Sizing: pixel size targets ~10% of monitor width for the Clawd body.
+        const targetBodyW = Math.floor(monitor.width * 0.10);
+        const xUnit = Math.max(6, Math.floor(targetBodyW / COLS));
+        const yUnit = xUnit * 2;
+        const padX = 4 * xUnit;
+        const padY = 4 * yUnit;
+        const canvasW = xUnit * COLS + 2 * padX;
+        const canvasH = yUnit * ROWS + 2 * padY;
+
+        const marginX = Math.floor(monitor.width * 0.06);
+        const marginY = Math.floor(monitor.height * 0.10);
+
         super._init({
+            width: canvasW,
+            height: canvasH,
+            x: monitor.x + monitor.width - canvasW - marginX + padX,
+            y: monitor.y + monitor.height - canvasH - marginY + padY,
             reactive: false,
             can_focus: false,
             track_hover: false,
         });
 
-        // Sizing: pixel size targets ~10% of monitor width for the Clawd body.
-        // Body is 18 cols × 6 rows, with feet half-rows.
-        const targetBodyW = Math.floor(monitor.width * 0.10);
-        const xUnit = Math.max(6, Math.floor(targetBodyW / COLS));
-        const yUnit = xUnit * 2;
         this._xUnit = xUnit;
         this._yUnit = yUnit;
-
-        // Canvas: extra room above for the speech bubble + grow-effect margin.
-        const padX = 4 * xUnit;
-        const padY = 4 * yUnit;
-        const canvasW = xUnit * COLS + 2 * padX;
-        const canvasH = yUnit * ROWS + 2 * padY;
         this._canvasW = canvasW;
         this._canvasH = canvasH;
-
-        this._drawingArea = new St.DrawingArea({
-            width: canvasW,
-            height: canvasH,
-        });
-        this._drawingArea.connect('repaint', this._draw.bind(this));
-        this.add_child(this._drawingArea);
-        this.set_size(canvasW, canvasH);
-
-        // Position: lower-right corner with comfortable margin
-        const marginX = Math.floor(monitor.width * 0.06);
-        const marginY = Math.floor(monitor.height * 0.10);
-        this.set_position(
-            monitor.x + monitor.width - canvasW - marginX + padX,
-            monitor.y + monitor.height - canvasH - marginY + padY
-        );
+        this.connect('repaint', this._draw.bind(this));
 
         // State
         this._s = makeState();
@@ -180,7 +170,7 @@ class LockClawd extends St.Widget {
             s.mouthVisible *= 0.85;
         }
 
-        this._drawingArea.queue_repaint();
+        this.queue_repaint();
     }
 
     _addTween(key, target, dur, easing, onComplete) {
@@ -191,10 +181,16 @@ class LockClawd extends St.Widget {
 
     // ─── Draw: Clawd + bubble ───
     _draw(area) {
-        const cr = area.get_context();
-        const [w, h] = area.get_surface_size();
+        const cr = (area || this).get_context();
+        const [w, h] = (area || this).get_surface_size();
 
-        // Speech bubble first (so Clawd renders on top if they overlap)
+        // Debug: faint magenta border around the whole canvas so we can
+        // confirm the actor is actually allocated + visible. Remove later.
+        cr.setSourceRGBA(1, 0, 1, 0.4);
+        cr.setLineWidth(2);
+        cr.rectangle(1, 1, w - 2, h - 2);
+        cr.stroke();
+
         if (this._bubbleAlpha > 0.02) {
             this._drawBubble(cr, w);
         }
