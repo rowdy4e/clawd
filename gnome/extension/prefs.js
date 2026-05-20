@@ -105,6 +105,14 @@ export default class ClawdPreferences extends ExtensionPreferences {
             settings, 'idle-max-seconds', 5, 1200, 1));
         page.add(animation);
 
+        // ─── Lock screen ───
+        const lock = new Adw.PreferencesGroup({title: 'Lock screen'});
+        lock.add(buildSwitchRow(
+            'Show Clawd on lock screen',
+            'Animated mascot with a rotating speech bubble and a rare grow easter egg',
+            settings, 'lockscreen-enabled'));
+        page.add(lock);
+
         // ─── Advanced ───
         const advanced = new Adw.PreferencesGroup({title: 'Advanced'});
         advanced.add(buildSwitchRow(

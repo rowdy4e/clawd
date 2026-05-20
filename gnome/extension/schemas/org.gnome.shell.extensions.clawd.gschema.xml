@@ -71,5 +71,11 @@
       <summary>Show animation playground in menu</summary>
       <description>Adds a submenu that lets you trigger every animation and morph form by hand.</description>
     </key>
+
+    <key name="lockscreen-enabled" type="b">
+      <default>true</default>
+      <summary>Show animated Clawd on the lock screen</summary>
+      <description>When enabled, an animated Clawd appears in the corner of the lock screen with a rotating speech bubble and a rare grow easter egg.</description>
+    </key>
   </schema>
 </schemalist>
