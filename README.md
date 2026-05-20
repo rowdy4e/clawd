@@ -48,18 +48,15 @@ Add the applet to the panel, then lock to see lock-screen Clawd.
 
 ```
 clawd-cinnamon/
-├── applet/                     # Cinnamon GJS panel applet (Cinnamon only)
+├── applet/                     # Cinnamon GJS panel applet
 │   ├── applet.js
 │   ├── metadata.json
 │   ├── settings-schema.json
 │   ├── stylesheet.css
 │   └── fetch-usage.sh          # Calls /api/oauth/usage
-├── lockscreen/                 # cinnamon-screensaver hook (Cinnamon only)
+├── lockscreen/                 # cinnamon-screensaver hook
 │   ├── usercustomize.py        # site-packages hook — patches Stage class
 │   └── clawd_widget_user.py    # GTK/Cairo Clawd widget
-├── standalone/                 # Cross-DE floating GTK window (anywhere)
-│   ├── clawd.py                # The whole app — run it directly
-│   └── fetch-usage.sh
 └── install/
     ├── install-applet.sh
     ├── install-lockscreen.sh
