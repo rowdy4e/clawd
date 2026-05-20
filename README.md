@@ -33,31 +33,32 @@ a "grow" easter egg and rotating speech-bubble messages.
 
 ## Install
 
-### Cinnamon
+Single entry point that detects your desktop:
 
 ```bash
-# Panel applet
-./install/install-applet.sh
-
-# Lock screen widget (optional)
-./install/install-lockscreen.sh
-pkill -f /usr/share/cinnamon-screensaver/cinnamon-screensaver-main
+./install.sh             # interactive — asks what to install
+./install.sh --auto      # install everything matching the detected DE
 ```
 
-Add the applet to the panel, then lock to see lock-screen Clawd.
-
-### GNOME Shell (45+)
+…or pick a piece manually:
 
 ```bash
-./install/install-gnome.sh
-# Log out + log back in so GNOME re-reads extensions, then:
-gnome-extensions enable clawd@rowdy4e
+./install.sh --applet        # Cinnamon panel applet
+./install.sh --lockscreen    # Cinnamon lock-screen widget
+./install.sh --gnome         # GNOME Shell extension
 ```
 
-GNOME version is a port of the Cinnamon applet — same Clawd, same
-animations (bounce, wiggle, squish, walk, morph, glitch, wink, yawn,
-lookAround…), same `/api/oauth/usage` data in the popup menu. Tested
-shell versions: 45, 46, 47, 48. Lock-screen integration not yet ported.
+### After install
+
+**Cinnamon:**
+- Right-click the panel → Applets → enable "Claude Usage"
+- For lock-screen: `pkill -f /usr/share/cinnamon-screensaver/cinnamon-screensaver-main`
+  (it auto-respawns and picks up the new widget)
+
+**GNOME Shell (45+):**
+- Log out + log back in, then `gnome-extensions enable clawd@rowdy4e`
+- Same Clawd, same animations as the Cinnamon applet. Tested on shell
+  versions 45, 46, 47, 48. Lock-screen port not yet done.
 
 ## Architecture
 
