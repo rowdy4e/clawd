@@ -9,7 +9,7 @@ const St = imports.gi.St;
 const Clutter = imports.gi.Clutter;
 const Cairo = imports.cairo;
 
-const APPLET_DIR = "/home/rowdy/.local/share/cinnamon/applets/claude-usage@rowdy4e";
+const APPLET_DIR = GLib.get_home_dir() + "/.local/share/cinnamon/applets/claude-usage@rowdy4e";
 
 // ─── Pixel-art forms — 18 cols × 6 rows each ───
 // 'O' body, 'E' eye gap (drawn only when blinking), 'F' foot (walk-animated),
