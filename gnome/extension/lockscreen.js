@@ -508,14 +508,38 @@ export class LockClawdManager {
         this._destroyWidget();
     }
 
+    // Try several known parents in order of preference. uiGroup is bottom-
+    // most when locked (shield covers it), so we MUST reparent to something
+    // inside the screen shield to be visible on the lock screen.
+    _pickParent() {
+        const shield = Main.screenShield;
+        const candidates = [
+            ['screenShield._lockScreenGroup',  shield && shield._lockScreenGroup],
+            ['screenShield._lockScreenContents', shield && shield._lockScreenContents],
+            ['layoutManager.screenShieldGroup',  Main.layoutManager.screenShieldGroup],
+            ['layoutManager.uiGroup',            Main.layoutManager.uiGroup],
+        ];
+        for (const [name, obj] of candidates) {
+            if (obj && typeof obj.add_child === 'function') {
+                log(`[clawd] using parent: ${name}`);
+                return obj;
+            }
+        }
+        log('[clawd] no usable parent found');
+        return null;
+    }
+
     _createWidget() {
         try {
             const monitor = Main.layoutManager.primaryMonitor;
             if (!monitor) { log('[clawd] no primary monitor'); return; }
+            const parent = this._pickParent();
+            if (!parent) return;
             this._widget = new LockClawd(monitor);
             this._widget.visible = false;
-            Main.layoutManager.uiGroup.add_child(this._widget);
-            log(`[clawd] LockClawd attached to uiGroup at ${this._widget.x},${this._widget.y} size ${this._widget.width}x${this._widget.height}`);
+            parent.add_child(this._widget);
+            this._parent = parent;
+            log(`[clawd] LockClawd attached at ${this._widget.x},${this._widget.y} size ${this._widget.width}x${this._widget.height}`);
         } catch (e) {
             logError(e, 'LockClawdManager._createWidget');
         }
@@ -525,6 +549,7 @@ export class LockClawdManager {
         if (!this._widget) return;
         try { this._widget.destroy(); } catch (e) {}
         this._widget = null;
+        this._parent = null;
     }
 
     _sync() {
@@ -536,8 +561,9 @@ export class LockClawdManager {
         if (want) {
             this._widget.visible = true;
             try {
-                // Ensure on top of any other lockscreen UI
-                Main.layoutManager.uiGroup.set_child_above_sibling(this._widget, null);
+                if (this._parent && typeof this._parent.set_child_above_sibling === 'function') {
+                    this._parent.set_child_above_sibling(this._widget, null);
+                }
             } catch (e) {}
         } else {
             this._widget.visible = false;
