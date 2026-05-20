@@ -71,20 +71,18 @@ clawd-cinnamon/
 │   │   ├── settings-schema.json
 │   │   ├── stylesheet.css
 │   │   └── fetch-usage.sh      # Calls /api/oauth/usage
-│   └── lockscreen/             # cinnamon-screensaver hook (no sudo)
-│       ├── usercustomize.py    # site-packages hook — patches Stage class
-│       └── clawd_widget_user.py # GTK/Cairo Clawd widget
+│   ├── lockscreen/             # cinnamon-screensaver hook (no sudo)
+│   │   ├── usercustomize.py
+│   │   └── clawd_widget_user.py
+│   └── install.sh              # Installs both Cinnamon pieces
 ├── gnome/
-│   └── extension/              # GNOME Shell extension (45+)
-│       ├── extension.js
-│       ├── metadata.json
-│       ├── stylesheet.css
-│       └── fetch-usage.sh
-└── install/
-    ├── install-applet.sh       # Cinnamon panel applet
-    ├── install-lockscreen.sh   # Cinnamon screensaver widget
-    ├── install-gnome.sh        # GNOME Shell extension
-    └── uninstall-lockscreen.sh
+│   ├── extension/              # GNOME Shell extension (45+)
+│   │   ├── extension.js
+│   │   ├── metadata.json
+│   │   ├── stylesheet.css
+│   │   └── fetch-usage.sh
+│   └── install.sh
+└── install.sh                  # Top-level: detects DE, delegates
 ```
 
 ### Lock screen integration without sudo
