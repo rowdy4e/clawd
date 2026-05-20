@@ -1,0 +1,7 @@
+{
+    "uuid": "clawd@rowdy4e",
+    "name": "Clawd — Claude Code usage",
+    "description": "Animated pixel-art Claude Code mascot in the top bar, with real subscription usage (session %, week %, credits) from /api/oauth/usage.",
+    "shell-version": ["45", "46", "47", "48"],
+    "url": "https://github.com/rowdy4e/clawd-cinnamon"
+}

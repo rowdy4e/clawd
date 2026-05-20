@@ -33,6 +33,8 @@ a "grow" easter egg and rotating speech-bubble messages.
 
 ## Install
 
+### Cinnamon
+
 ```bash
 # Panel applet
 ./install/install-applet.sh
@@ -44,6 +46,19 @@ pkill -f /usr/share/cinnamon-screensaver/cinnamon-screensaver-main
 
 Add the applet to the panel, then lock to see lock-screen Clawd.
 
+### GNOME Shell (45+)
+
+```bash
+./install/install-gnome.sh
+# Log out + log back in so GNOME re-reads extensions, then:
+gnome-extensions enable clawd@rowdy4e
+```
+
+GNOME version is a port of the Cinnamon applet — same Clawd, same
+animations (bounce, wiggle, squish, walk, morph, glitch, wink, yawn,
+lookAround…), same `/api/oauth/usage` data in the popup menu. Tested
+shell versions: 45, 46, 47, 48. Lock-screen integration not yet ported.
+
 ## Architecture
 
 ```
@@ -54,12 +69,19 @@ clawd-cinnamon/
 │   ├── settings-schema.json
 │   ├── stylesheet.css
 │   └── fetch-usage.sh          # Calls /api/oauth/usage
-├── lockscreen/                 # cinnamon-screensaver hook
+├── lockscreen/                 # cinnamon-screensaver hook (no sudo needed)
 │   ├── usercustomize.py        # site-packages hook — patches Stage class
 │   └── clawd_widget_user.py    # GTK/Cairo Clawd widget
+├── gnome/                      # GNOME Shell extension (45+)
+│   └── clawd@rowdy4e/
+│       ├── extension.js
+│       ├── metadata.json
+│       ├── stylesheet.css
+│       └── fetch-usage.sh
 └── install/
     ├── install-applet.sh
     ├── install-lockscreen.sh
+    ├── install-gnome.sh
     └── uninstall-lockscreen.sh
 ```
 
