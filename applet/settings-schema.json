@@ -1,0 +1,108 @@
+{
+    "layout": {
+        "type": "layout",
+        "pages": ["page1"],
+        "page1": {
+            "type": "page",
+            "title": "Settings",
+            "sections": ["display", "animation", "advanced"]
+        },
+        "display": {
+            "type": "section",
+            "title": "Display",
+            "keys": ["refreshSeconds", "barMode"]
+        },
+        "animation": {
+            "type": "section",
+            "title": "Animation",
+            "keys": ["animationStyle", "animateOnRefresh", "idleAnimations", "idleMinSeconds", "idleMaxSeconds"]
+        },
+        "advanced": {
+            "type": "section",
+            "title": "Advanced",
+            "keys": ["usageScriptPath", "devMode", "lockscreenEnabled"]
+        }
+    },
+    "refreshSeconds": {
+        "type": "spinbutton",
+        "default": 300,
+        "min": 60,
+        "max": 7200,
+        "step": 30,
+        "units": "seconds",
+        "description": "Refresh interval (auto-backs-off on 429)"
+    },
+    "barMode": {
+        "type": "combobox",
+        "default": "session",
+        "description": "Progress bar represents",
+        "options": {
+            "Session (5h limit)": "session",
+            "Week (all models)": "week",
+            "Week (Sonnet only)": "week-sonnet",
+            "Extra credits": "credits"
+        }
+    },
+    "animationStyle": {
+        "type": "combobox",
+        "default": "random",
+        "description": "Animation style",
+        "options": {
+            "Random": "random",
+            "Bounce": "bounce",
+            "Wiggle": "wiggle",
+            "Squish": "squish",
+            "Spin": "spin",
+            "Shake": "shake",
+            "Tilt": "tilt",
+            "Walk": "walk",
+            "Excited": "excited",
+            "Morph": "morph",
+            "Glitch": "glitch",
+            "Rainbow (recolors Clawd!)": "rainbow"
+        }
+    },
+    "animateOnRefresh": {
+        "type": "checkbox",
+        "default": true,
+        "description": "Animate on each refresh"
+    },
+    "idleAnimations": {
+        "type": "checkbox",
+        "default": true,
+        "description": "Random idle animations (Clawd reacts on his own)"
+    },
+    "idleMinSeconds": {
+        "type": "spinbutton",
+        "default": 12,
+        "min": 3,
+        "max": 600,
+        "step": 1,
+        "units": "seconds",
+        "description": "Idle animation — min interval"
+    },
+    "idleMaxSeconds": {
+        "type": "spinbutton",
+        "default": 22,
+        "min": 5,
+        "max": 1200,
+        "step": 1,
+        "units": "seconds",
+        "description": "Idle animation — max interval"
+    },
+    "usageScriptPath": {
+        "type": "entry",
+        "default": "/home/rowdy/.local/share/cinnamon/applets/claude-usage@rowdy4e/fetch-usage.sh",
+        "description": "Path to the usage fetch script"
+    },
+    "devMode": {
+        "type": "checkbox",
+        "default": false,
+        "description": "Show animation playground in menu"
+    },
+    "lockscreenEnabled": {
+        "type": "checkbox",
+        "default": true,
+        "description": "Show animated Clawd on the lock screen (next time you lock)"
+    }
+}

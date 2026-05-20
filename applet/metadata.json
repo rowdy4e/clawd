@@ -1,0 +1,7 @@
+{
+    "uuid": "claude-usage@rowdy4e",
+    "name": "Claude Usage",
+    "description": "Shows Claude Code usage for the active 5h billing block (via ccusage)",
+    "icon": "applications-development",
+    "max-instances": 1
+}
