@@ -460,9 +460,10 @@ class LockClawd extends St.Widget {
 });
 
 // ─── Manager — owns the lifecycle ───
-// Listens to Main.screenShield.active. On lock: instantiate LockClawd on the
-// primary monitor and parent it under Main.layoutManager.screenShieldGroup
-// (which the shell shows only while locked). On unlock: destroy.
+// Strategy: parent the widget under Main.layoutManager.uiGroup once at enable
+// time, then toggle visibility based on Main.screenShield.active. This is
+// more reliable than parenting under screenShieldGroup, whose visibility
+// rules have shifted across GNOME versions.
 export class LockClawdManager {
     constructor(settings) {
         this._settings = settings;
@@ -475,21 +476,25 @@ export class LockClawdManager {
         if (this._enabled) return;
         this._enabled = true;
         const shield = Main.screenShield;
+        log(`[clawd] LockClawdManager.enable; screenShield=${!!shield} active=${shield ? shield.active : '?'}`);
         if (!shield) return;
 
-        // Connect to lock-status-changed AND active-changed (different shell versions)
-        for (const sig of ['active-changed', 'lock-status-changed']) {
+        // GNOME 45+ uses notify::active on the screenShield property; older
+        // versions emitted 'active-changed' / 'lock-status-changed'. Wire all
+        // three — whichever fires, we react.
+        for (const sig of ['notify::active', 'active-changed', 'lock-status-changed']) {
             try {
                 const id = shield.connect(sig, () => this._sync());
                 this._handlerIds.push([shield, id]);
             } catch (e) {}
         }
-        // React to setting toggling
         try {
             const id = this._settings.connect('changed::lockscreen-enabled', () => this._sync());
             this._handlerIds.push([this._settings, id]);
         } catch (e) {}
 
+        // Create widget once, keep it parked invisible until lock.
+        this._createWidget();
         this._sync();
     }
 
@@ -500,33 +505,42 @@ export class LockClawdManager {
             try { obj.disconnect(id); } catch (e) {}
         }
         this._handlerIds = [];
-        this._removeWidget();
+        this._destroyWidget();
+    }
+
+    _createWidget() {
+        try {
+            const monitor = Main.layoutManager.primaryMonitor;
+            if (!monitor) { log('[clawd] no primary monitor'); return; }
+            this._widget = new LockClawd(monitor);
+            this._widget.visible = false;
+            Main.layoutManager.uiGroup.add_child(this._widget);
+            log(`[clawd] LockClawd attached to uiGroup at ${this._widget.x},${this._widget.y} size ${this._widget.width}x${this._widget.height}`);
+        } catch (e) {
+            logError(e, 'LockClawdManager._createWidget');
+        }
+    }
+
+    _destroyWidget() {
+        if (!this._widget) return;
+        try { this._widget.destroy(); } catch (e) {}
+        this._widget = null;
     }
 
     _sync() {
         const shield = Main.screenShield;
-        if (!shield) return;
-        const want = this._settings.get_boolean('lockscreen-enabled') && shield.active;
-        if (want && !this._widget) this._addWidget();
-        else if (!want && this._widget) this._removeWidget();
-    }
-
-    _addWidget() {
-        try {
-            const monitor = Main.layoutManager.primaryMonitor;
-            if (!monitor) return;
-            this._widget = new LockClawd(monitor);
-            // screenShieldGroup is hidden by the shell whenever the session is unlocked,
-            // so we just parent under it and let the shell show/hide for us.
-            Main.layoutManager.screenShieldGroup.add_child(this._widget);
-        } catch (e) {
-            logError(e, 'LockClawdManager._addWidget');
+        if (!shield || !this._widget) return;
+        const enabled = this._settings.get_boolean('lockscreen-enabled');
+        const want = enabled && shield.active;
+        log(`[clawd] _sync: enabled=${enabled} active=${shield.active} want=${want}`);
+        if (want) {
+            this._widget.visible = true;
+            try {
+                // Ensure on top of any other lockscreen UI
+                Main.layoutManager.uiGroup.set_child_above_sibling(this._widget, null);
+            } catch (e) {}
+        } else {
+            this._widget.visible = false;
         }
-    }
-
-    _removeWidget() {
-        if (!this._widget) return;
-        try { this._widget.destroy(); } catch (e) {}
-        this._widget = null;
     }
 }
