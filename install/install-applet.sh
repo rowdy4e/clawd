@@ -5,7 +5,7 @@ set -e
 
 UUID="claude-usage@rowdy4e"
 DEST="$HOME/.local/share/cinnamon/applets/$UUID"
-SRC="$(cd "$(dirname "$0")/../applet" && pwd)"
+SRC="$(cd "$(dirname "$0")/../cinnamon/applet" && pwd)"
 
 mkdir -p "$DEST"
 cp -v "$SRC"/* "$DEST/"

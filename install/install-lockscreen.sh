@@ -4,7 +4,7 @@
 set -e
 
 PY_USERSITE=$(python3 -c 'import site; print(site.USER_SITE)')
-SRC="$(cd "$(dirname "$0")/../lockscreen" && pwd)"
+SRC="$(cd "$(dirname "$0")/../cinnamon/lockscreen" && pwd)"
 
 mkdir -p "$PY_USERSITE"
 

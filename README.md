@@ -63,15 +63,16 @@ shell versions: 45, 46, 47, 48. Lock-screen integration not yet ported.
 
 ```
 clawd-cinnamon/
-├── applet/                     # Cinnamon GJS panel applet
-│   ├── applet.js
-│   ├── metadata.json
-│   ├── settings-schema.json
-│   ├── stylesheet.css
-│   └── fetch-usage.sh          # Calls /api/oauth/usage
-├── lockscreen/                 # cinnamon-screensaver hook (no sudo needed)
-│   ├── usercustomize.py        # site-packages hook — patches Stage class
-│   └── clawd_widget_user.py    # GTK/Cairo Clawd widget
+├── cinnamon/
+│   ├── applet/                 # Cinnamon GJS panel applet
+│   │   ├── applet.js
+│   │   ├── metadata.json
+│   │   ├── settings-schema.json
+│   │   ├── stylesheet.css
+│   │   └── fetch-usage.sh      # Calls /api/oauth/usage
+│   └── lockscreen/             # cinnamon-screensaver hook (no sudo)
+│       ├── usercustomize.py    # site-packages hook — patches Stage class
+│       └── clawd_widget_user.py # GTK/Cairo Clawd widget
 ├── gnome/                      # GNOME Shell extension (45+)
 │   └── clawd@rowdy4e/
 │       ├── extension.js
@@ -79,9 +80,9 @@ clawd-cinnamon/
 │       ├── stylesheet.css
 │       └── fetch-usage.sh
 └── install/
-    ├── install-applet.sh
-    ├── install-lockscreen.sh
-    ├── install-gnome.sh
+    ├── install-applet.sh       # Cinnamon panel applet
+    ├── install-lockscreen.sh   # Cinnamon screensaver widget
+    ├── install-gnome.sh        # GNOME Shell extension
     └── uninstall-lockscreen.sh
 ```
 
