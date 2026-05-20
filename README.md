@@ -94,12 +94,20 @@ currently locked.
 
 ## Cross-DE: standalone window
 
-If you don't run Cinnamon, the panel applet and lock-screen widget won't
-load. Use the **standalone GTK app** instead — it's a regular floating
-window that runs on any Linux desktop (GNOME, KDE, XFCE, MATE, Sway, …)
-as long as you have Python 3 + GTK 3 (most distros do by default).
+If you don't run Cinnamon (e.g. you're on **Ubuntu / Fedora / Arch with
+GNOME, KDE, XFCE, MATE, Sway, Hyprland**, etc.), the panel applet and
+lock-screen widget won't load — they hook into Cinnamon-specific APIs.
+Use the **standalone GTK app** instead. It's a regular floating window
+that runs anywhere Python 3 + GTK 3 are installed.
 
 ```bash
+# Ubuntu / Debian / Mint / Pop!_OS:
+sudo apt install python3-gi python3-gi-cairo gir1.2-gtk-3.0
+# Fedora:
+sudo dnf install python3-gobject gtk3
+# Arch:
+sudo pacman -S python-gobject gtk3
+
 ./standalone/clawd.py                # default
 ./standalone/clawd.py --keep-above   # stay on top
 ./standalone/clawd.py --sticky       # show on every workspace
