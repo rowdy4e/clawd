@@ -793,26 +793,71 @@ class ClawdStandalone(Gtk.Window):
 
 
 # ──────────────── Tray-icon renderer ────────────────
-def render_clawd_icon(path, size=64):
-    """Render a static Clawd PNG suitable for a panel tray icon."""
+def render_clawd_icon(path, state=None, size=64):
+    """Render Clawd to a square PNG for use as a tray icon. If `state` is
+    provided, the current animation (breath, blink, wink, morph) is applied —
+    cycle this from a periodic timer to get an "animated" tray icon."""
     surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, size, size)
     cr = cairo.Context(surface)
     try: cr.set_antialias(cairo.ANTIALIAS_NONE)
     except Exception: pass
-    # Fit Clawd into the icon — bitmap is 18×6 logical pixels (3:1 ratio).
+
     px = max(1, (size - 4) // COLS)
-    py = px  # square pixels in the icon (it's tiny, no aspect tricks)
+    py = px
     bitmap_w = COLS * px
     bitmap_h = ROWS * py
     ox = (size - bitmap_w) // 2
     oy = (size - bitmap_h) // 2
-    form = FORMS["clawd"]
-    cr.set_source_rgb(*form["color"])
-    for r, c, ch in form["bodyCells"] + form["footCells"]:
-        if ch == 'E':  # eyes stay as gaps
+
+    s = state or {}
+    form_a = FORMS[s.get("form_a", "clawd")]
+    form_b = FORMS[s.get("form_b", "clawd")]
+    t = max(0.0, min(1.0, s.get("morph_t", 0.0)))
+    morphing = (s.get("form_a") != s.get("form_b")) and (0.001 < t < 0.999)
+
+    ra, ga, ba = form_a["color"]
+    rb, gb, bb = form_b["color"]
+    r = ra*(1-t) + rb*t
+    g = ga*(1-t) + gb*t
+    b = ba*(1-t) + bb*t
+
+    # Eye state
+    left_closed = right_closed = False
+    if not morphing:
+        es = s.get("eye_state", "normal")
+        eo = s.get("eye_open", 1.0)
+        if es == "sleepy": left_closed = right_closed = True
+        elif es == "wink-l": left_closed = True
+        elif es == "wink-r": right_closed = True
+        elif eo < 0.5: left_closed = right_closed = True
+
+    # Breath only affects body, pivoting at the feet row.
+    breath = s.get("_breath", 0.0)
+    breath_scale = 1.0 - breath * 0.05
+    pivot_y = oy + 4 * py
+
+    form = form_b if (morphing and t >= 0.5) else form_a
+
+    # Body (with breath)
+    cr.save()
+    cr.translate(0, pivot_y); cr.scale(1.0, breath_scale); cr.translate(0, -pivot_y)
+    cr.set_source_rgb(r, g, b)
+    for row, col, ch in form["bodyCells"]:
+        if ch == 'E':
+            is_l = (col == 5); is_rr = (col == 12)
+            if morphing or (is_l and left_closed) or (is_rr and right_closed):
+                cr.rectangle(ox + col*px, oy + row*py, px, py)
             continue
-        cr.rectangle(ox + c * px, oy + r * py, px, py)
+        cr.rectangle(ox + col*px, oy + row*py, px, py)
     cr.fill()
+    cr.restore()
+
+    # Feet (no breath)
+    cr.set_source_rgb(r, g, b)
+    for row, col, ch in form["footCells"]:
+        cr.rectangle(ox + col*px, oy + row*py, px, py)
+    cr.fill()
+
     surface.write_to_png(path)
 
 
@@ -834,11 +879,15 @@ def run_tray(args):
         Gtk.main()
         return
 
-    # Render icon (cached in ~/.cache/clawd/)
+    # Animated icon: render to two alternating files so the indicator's
+    # filename-based cache invalidates between frames.
     icon_dir = os.path.expanduser("~/.cache/clawd")
     os.makedirs(icon_dir, exist_ok=True)
-    icon_path = os.path.join(icon_dir, "clawd-tray.png")
-    render_clawd_icon(icon_path, size=64)
+    icon_paths = [
+        os.path.join(icon_dir, "clawd-tray-a.png"),
+        os.path.join(icon_dir, "clawd-tray-b.png"),
+    ]
+    render_clawd_icon(icon_paths[0], size=64)  # initial frame
 
     # Create the window but keep it hidden — closing X hides it, doesn't quit.
     win = ClawdStandalone(args, _quit_on_destroy=False)
@@ -846,11 +895,11 @@ def run_tray(args):
 
     indicator = AI.Indicator.new(
         "clawd-claude-usage",
-        icon_path,
+        icon_paths[0],
         AI.IndicatorCategory.APPLICATION_STATUS
     )
     indicator.set_status(AI.IndicatorStatus.ACTIVE)
-    indicator.set_icon_full(icon_path, "Clawd — Claude Code usage")
+    indicator.set_icon_full(icon_paths[0], "Clawd — Claude Code usage")
     indicator.set_title("Clawd")
 
     # Build the dropdown menu.
@@ -905,6 +954,22 @@ def run_tray(args):
                 credits_item.set_label("Credits: —")
         return True
     GLib.timeout_add_seconds(2, update_menu)
+
+    # Animated icon — render current Clawd state to PNG and swap path so the
+    # indicator's filename cache invalidates. ~5 fps (200 ms) is enough for
+    # the subtle effects visible at this size: breath, blink, morph color.
+    icon_idx = [0]
+    def update_icon():
+        idx = 1 - icon_idx[0]
+        path = icon_paths[idx]
+        try:
+            render_clawd_icon(path, state=win._s, size=64)
+            indicator.set_icon_full(path, "Clawd")
+            icon_idx[0] = idx
+        except Exception as e:
+            sys.stderr.write("Clawd tray icon update failed: %s\n" % e)
+        return True
+    GLib.timeout_add(200, update_icon)
 
     Gtk.main()
 
