@@ -183,6 +183,20 @@ class ClawdIndicator extends PanelMenu.Button {
         const dir = extension.path;
         this._fetchScript = `${dir}/fetch-usage.sh`;
 
+        // Settings
+        this._settings = extension.getSettings();
+        this._settingsHandlers = [];
+        this._settingsHandlers.push(this._settings.connect('changed::refresh-seconds',
+            () => this._scheduleRefresh()));
+        for (const key of ['idle-animations', 'idle-min-seconds', 'idle-max-seconds']) {
+            this._settingsHandlers.push(this._settings.connect(`changed::${key}`,
+                () => this._scheduleIdle()));
+        }
+        this._settingsHandlers.push(this._settings.connect('changed::dev-mode',
+            () => this._rebuildPlaygroundMenu()));
+        this._settingsHandlers.push(this._settings.connect('changed::bar-mode',
+            () => this._rebuildMenu()));
+
         // Animation loop: 33 ms tick advances tweens + breath
         this._tickId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 33, () => {
             this._onTick();
@@ -245,6 +259,10 @@ class ClawdIndicator extends PanelMenu.Button {
     _animDone() { this._animBusy = false; }
 
     _pickAnimation() {
+        const choice = this._settings
+            ? this._settings.get_string('animation-style')
+            : 'random';
+        if (choice && choice !== 'random') return choice;
         const list = ['bounce','wiggle','squish','shake','tilt','walk',
                       'excited','morph','glitch','wink','yawn','lookAround'];
         return list[Math.floor(Math.random() * list.length)];
@@ -276,9 +294,19 @@ class ClawdIndicator extends PanelMenu.Button {
     }
 
     _scheduleIdle() {
-        const delay = 12 + Math.floor(Math.random() * 10);
+        if (this._idleId) {
+            try { GLib.source_remove(this._idleId); } catch (e) {}
+            this._idleId = null;
+        }
+        if (this._settings && !this._settings.get_boolean('idle-animations')) return;
+        const min = this._settings ? this._settings.get_int('idle-min-seconds') : 12;
+        const max = this._settings ? this._settings.get_int('idle-max-seconds') : 22;
+        const lo = Math.min(min, max);
+        const hi = Math.max(min, max);
+        const delay = lo + Math.floor(Math.random() * Math.max(1, hi - lo + 1));
         this._idleId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, delay, () => {
             if (!this._animBusy) this._playAnimation(this._pickAnimation());
+            this._idleId = null;
             this._scheduleIdle();
             return GLib.SOURCE_REMOVE;
         });
@@ -579,8 +607,12 @@ class ClawdIndicator extends PanelMenu.Button {
 
     // ─── Usage fetching ───
     _scheduleRefresh() {
-        if (this._refreshId) GLib.source_remove(this._refreshId);
-        this._refreshId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 300, () => {
+        if (this._refreshId) {
+            try { GLib.source_remove(this._refreshId); } catch (e) {}
+            this._refreshId = null;
+        }
+        const sec = this._settings ? this._settings.get_int('refresh-seconds') : 300;
+        this._refreshId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, sec, () => {
             this._refresh();
             return GLib.SOURCE_CONTINUE;
         });
@@ -611,6 +643,10 @@ class ClawdIndicator extends PanelMenu.Button {
                             this._lastUpdated = Date.now();
                             this._backoffSeconds = 0;
                             this._rateLimitedUntil = 0;
+                            if (this._settings && this._settings.get_boolean('animate-on-refresh')
+                                && !this._animBusy) {
+                                this._playAnimation(this._pickAnimation());
+                            }
                         }
                     } else {
                         this._lastError = (stderr || "no output").trim();
@@ -645,6 +681,45 @@ class ClawdIndicator extends PanelMenu.Button {
         this._refreshAction = new PopupMenu.PopupMenuItem('Refresh now');
         this._refreshAction.connect('activate', () => this._refresh());
         this.menu.addMenuItem(this._refreshAction);
+
+        this._playgroundItem = null;
+        this._rebuildPlaygroundMenu();
+    }
+
+    _rebuildPlaygroundMenu() {
+        if (this._playgroundItem) {
+            this._playgroundItem.destroy();
+            this._playgroundItem = null;
+        }
+        if (!this._settings || !this._settings.get_boolean('dev-mode')) return;
+
+        const sub = new PopupMenu.PopupSubMenuMenuItem('Animation playground');
+        const anims = ['bounce','wiggle','squish','spin','shake','tilt','walk',
+                       'excited','morph','glitch','wink','yawn','lookAround'];
+        for (const name of anims) {
+            const it = new PopupMenu.PopupMenuItem(name);
+            it.connect('activate', () => {
+                this._animBusy = false;
+                this._playAnimation(name);
+            });
+            sub.menu.addMenuItem(it);
+        }
+        const formKeys = Object.keys(FORMS).filter(k => k !== 'clawd');
+        const formSub = new PopupMenu.PopupSubMenuMenuItem('Morph to…');
+        for (const k of formKeys) {
+            const it = new PopupMenu.PopupMenuItem(k);
+            it.connect('activate', () => {
+                this._animBusy = false;
+                this._s.formB = k;
+                this._addTween('morphT', 1, 320, easeOutQuad, () => {
+                    this._s.formA = k; this._s.morphT = 0;
+                });
+            });
+            formSub.menu.addMenuItem(it);
+        }
+        sub.menu.addMenuItem(formSub);
+        this.menu.addMenuItem(sub);
+        this._playgroundItem = sub;
     }
 
     _rebuildMenu() {
@@ -658,8 +733,17 @@ class ClawdIndicator extends PanelMenu.Button {
             this._headerItem.label.text = 'Claude Code · loading…';
             return;
         }
-        const pct = u.five_hour ? Math.round(u.five_hour.utilization) : 0;
-        this._headerItem.label.text = `Claude Code · ${pct}% session`;
+        const barMode = this._settings ? this._settings.get_string('bar-mode') : 'session';
+        const headerSrc = {
+            'session':     {sec: u.five_hour,         label: 'session'},
+            'week':        {sec: u.seven_day,         label: 'week'},
+            'week-sonnet': {sec: u.seven_day_sonnet,  label: 'week (Sonnet)'},
+            'credits':     {sec: u.extra_usage && u.extra_usage.is_enabled ? u.extra_usage : null,
+                            label: 'credits'},
+        }[barMode] || {sec: u.five_hour, label: 'session'};
+        const pct = headerSrc.sec && headerSrc.sec.utilization != null
+            ? Math.round(headerSrc.sec.utilization) : 0;
+        this._headerItem.label.text = `Claude Code · ${pct}% ${headerSrc.label}`;
 
         const fmtPct = (sec) => sec && sec.utilization != null
             ? sec.utilization.toFixed(0) + ' %' : '—';
@@ -711,6 +795,13 @@ class ClawdIndicator extends PanelMenu.Button {
             if (tid) try { GLib.source_remove(tid); } catch (e) {}
         }
         this._tickId = this._idleId = this._blinkId = this._refreshId = null;
+        if (this._settings && this._settingsHandlers) {
+            for (const h of this._settingsHandlers) {
+                try { this._settings.disconnect(h); } catch (e) {}
+            }
+        }
+        this._settingsHandlers = null;
+        this._settings = null;
         super.destroy();
     }
 });
