@@ -184,7 +184,7 @@ class ClawdIndicator extends PanelMenu.Button {
         this._fetchScript = `${dir}/fetch-usage.sh`;
 
         // Settings
-        this._settings = extension.getSettings();
+        this._settings = extension.getSettings('org.gnome.shell.extensions.clawd');
         this._settingsHandlers = [];
         this._settingsHandlers.push(this._settings.connect('changed::refresh-seconds',
             () => this._scheduleRefresh()));

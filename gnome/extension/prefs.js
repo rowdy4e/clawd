@@ -72,7 +72,7 @@ function buildSwitchRow(title, subtitle, settings, key) {
 
 export default class ClawdPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
-        const settings = this.getSettings();
+        const settings = this.getSettings('org.gnome.shell.extensions.clawd');
 
         const page = new Adw.PreferencesPage({
             title: 'Settings',
