@@ -17,7 +17,9 @@ import os
 import random
 
 import cairo
-from gi.repository import GLib, Gtk, Gdk
+import gi
+gi.require_version("PangoCairo", "1.0")
+from gi.repository import GLib, Gtk, Gdk, Pango, PangoCairo
 
 from floating import Floating
 from baseWindow import BaseWindow
@@ -333,37 +335,15 @@ class ClawdWidget(Floating, BaseWindow):
         self.area.set_size_request(self._canvas_w, self._canvas_h)
         self.area.connect("draw", self._on_draw)
 
-        # Speech-bubble label that shows random messages above Clawd.
-        self.message_label = Gtk.Label()
-        self.message_label.set_line_wrap(True)
-        self.message_label.set_max_width_chars(46)
-        self.message_label.set_justify(Gtk.Justification.CENTER)
-        self.message_label.set_halign(Gtk.Align.CENTER)
-        self.message_label.set_no_show_all(True)
-        try:
-            provider = Gtk.CssProvider()
-            provider.load_from_data(
-                b".clawd-message { color: rgba(255,255,255,0.95); "
-                b"background-color: rgba(20,24,32,0.72); "
-                b"border-radius: 14px; padding: 10px 18px; "
-                b"font-size: 16px; font-weight: 500; }"
-            )
-            ctx = self.message_label.get_style_context()
-            ctx.add_class("clawd-message")
-            ctx.add_provider(provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
-        except Exception:
-            pass
-
-        self._content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=18)
-        self._content_box.set_halign(Gtk.Align.CENTER)
-        self._content_box.pack_start(self.message_label, False, False, 0)
-        self._content_box.pack_start(self.area, False, False, 0)
-        self.add(self._content_box)
-        self._content_box.show()
+        # Speech bubble is drawn directly with Cairo + Pango inside the canvas
+        # (no Gtk.Label/Overlay) so its absolute position is pixel-precise.
+        self._current_message = ""
+        self.add(self.area)
         self.area.show()
 
         self._message_active = False
         self._message_hide_id = None
+        self._mouth_anim_id = None
 
         self._s = {
             "body_x": 0.0, "body_y": 0.0,
@@ -396,24 +376,26 @@ class ClawdWidget(Floating, BaseWindow):
     def _on_destroy(self, *_):
         for tid in (self._tick_id, self._blink_id, self._idle_id,
                     getattr(self, "_msg_id", None),
-                    getattr(self, "_message_hide_id", None)):
+                    getattr(self, "_message_hide_id", None),
+                    getattr(self, "_mouth_anim_id", None)):
             if tid:
                 try: GLib.source_remove(tid)
                 except Exception: pass
         self._tick_id = self._blink_id = self._idle_id = None
         self._msg_id = None
         self._message_hide_id = None
+        self._mouth_anim_id = None
         self._tweens = []
 
     # ── messages ─────────────────────────────────────────────────────
     def _show_random_message(self):
         try:
             if not self._message_active:
-                text = random.choice(MESSAGES)
-                self.message_label.set_text(text)
-                self.message_label.show()
+                self._current_message = random.choice(MESSAGES)
                 self._message_active = True
+                self._start_mouth_talk()
                 self._message_hide_id = GLib.timeout_add(MESSAGE_DURATION_MS, self._hide_message)
+                self.area.queue_draw()
         except Exception as e:
             sys.stderr.write("Clawd message error: %s\n" % e)
         self._msg_id = GLib.timeout_add(
@@ -423,13 +405,89 @@ class ClawdWidget(Floating, BaseWindow):
         return False
 
     def _hide_message(self):
-        try:
-            self.message_label.hide()
-        except Exception:
-            pass
         self._message_active = False
+        self._current_message = ""
         self._message_hide_id = None
+        self._stop_mouth_talk()
+        self.area.queue_draw()
         return False
+
+    def _draw_message_bubble(self, cr, canvas_w, canvas_h):
+        """Render the active speech bubble above Clawd using Pango+Cairo."""
+        if not self._message_active or not self._current_message:
+            return
+        try:
+            layout = PangoCairo.create_layout(cr)
+            fd = Pango.FontDescription(
+                "Press Start 2P, VT323, PixelOperator, Monaco, DejaVu Sans Mono"
+            )
+            fd.set_size(11 * Pango.SCALE)
+            fd.set_weight(Pango.Weight.BOLD)
+            layout.set_font_description(fd)
+            layout.set_text(self._current_message, -1)
+            layout.set_alignment(Pango.Alignment.LEFT)
+            max_text_w = min(440, canvas_w - 100)
+            layout.set_width(max_text_w * Pango.SCALE)
+            layout.set_wrap(Pango.WrapMode.WORD)
+
+            ink, logical = layout.get_pixel_extents()
+            tw_px = max(ink.width, 1)
+            th_px = max(logical.height, ink.height)
+
+            pad_x = 14
+            pad_y = 9
+            bubble_w = tw_px + 2 * pad_x
+            bubble_h = th_px + 2 * pad_y
+            bubble_x = (canvas_w - bubble_w) // 2
+            bubble_y = max(20, canvas_h // 20)
+
+            # Background
+            cr.set_source_rgba(0.078, 0.094, 0.125, 0.92)
+            cr.rectangle(bubble_x, bubble_y, bubble_w, bubble_h)
+            cr.fill()
+            # Border (Claude orange, 3 px)
+            cr.set_source_rgba(0.851, 0.467, 0.341, 1.0)
+            cr.set_line_width(3)
+            cr.rectangle(bubble_x + 1.5, bubble_y + 1.5, bubble_w - 3, bubble_h - 3)
+            cr.stroke()
+            # Text — compensate for ink.x in case the font has bearing.
+            cr.set_source_rgba(0.961, 0.878, 0.784, 1.0)
+            cr.move_to(bubble_x + pad_x - ink.x, bubble_y + pad_y - ink.y)
+            PangoCairo.show_layout(cr, layout)
+        except Exception as e:
+            sys.stderr.write("Clawd bubble draw error: %s\n" % e)
+
+    def _start_mouth_talk(self):
+        if self._mouth_anim_id:
+            return
+        # Toggle mouth open/closed every ~120 ms — looks like he's speaking.
+        # Only run for ~2 s; after that he keeps the message visible silently.
+        start_time = GLib.get_monotonic_time()
+        TALK_LIMIT_US = 2_000_000  # 2 seconds in microseconds
+        def tick():
+            if not self._message_active or (GLib.get_monotonic_time() - start_time) > TALK_LIMIT_US:
+                self._s["mouth_visible"] = 0.0
+                self._s["mouth_shape"] = 0
+                self._mouth_anim_id = None
+                return False
+            open_now = self._s["mouth_visible"] < 0.5
+            self._s["mouth_visible"] = 1.0 if open_now else 0.0
+            if open_now:
+                # 70% line, 30% wider "O" shape for variety
+                self._s["mouth_shape"] = 1 if random.random() < 0.3 else 0
+            return True
+        # First toggle = open immediately, then keep alternating
+        self._s["mouth_visible"] = 1.0
+        self._s["mouth_shape"] = 0
+        self._mouth_anim_id = GLib.timeout_add(random.randint(110, 160), tick)
+
+    def _stop_mouth_talk(self):
+        if self._mouth_anim_id:
+            try: GLib.source_remove(self._mouth_anim_id)
+            except Exception: pass
+            self._mouth_anim_id = None
+        self._s["mouth_visible"] = 0.0
+        self._s["mouth_shape"] = 0
 
     # ── tweens ────────────────────────────────────────────────────────
     def _add_tween(self, key, target, dur_ms, easing="linear", on_complete=None):
@@ -669,6 +727,9 @@ class ClawdWidget(Floating, BaseWindow):
             w = area.get_allocated_width()
             h = area.get_allocated_height()
             self._paint(cr, w, h)
+            # Speech bubble is drawn after the body, in screen-space coordinates
+            # (outside the transform stack used for Clawd's animations).
+            self._draw_message_bubble(cr, w, h)
         except Exception as e:
             print("Clawd draw error: %s" % e)
         return False
@@ -748,9 +809,10 @@ class ClawdWidget(Floating, BaseWindow):
                 y_off = int(round(y_off * s["walking"]))
             cr.rectangle(ox + col * PIXEL_X, oy + row * PIXEL_Y + y_off, PIXEL_X, PIXEL_Y)
 
-        # Breath: applied only to body rows. Pivot at row 4 boundary so feet stay grounded.
+        # Breath: applied only to body rows. Pivot at row 4 boundary so feet
+        # stay grounded. We deliberately skip the breath_bob translation —
+        # it caused a visible desync between body and feet during bouncing.
         breath_scale = 1.0 - s["_breath"] * 0.05
-        breath_bob = s["_breath"] * 0.5
         pivot_y = oy + 4 * PIXEL_Y
 
         if not morphing:
@@ -758,7 +820,6 @@ class ClawdWidget(Floating, BaseWindow):
 
             # BODY (with breath)
             cr.save()
-            cr.translate(0, breath_bob)
             cr.translate(0, pivot_y)
             cr.scale(1.0, breath_scale)
             cr.translate(0, -pivot_y)
@@ -817,7 +878,6 @@ class ClawdWidget(Floating, BaseWindow):
 
             # BODY with breath
             cr.save()
-            cr.translate(0, breath_bob)
             cr.translate(0, pivot_y)
             cr.scale(1.0, breath_scale)
             cr.translate(0, -pivot_y)

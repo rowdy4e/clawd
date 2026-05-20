@@ -92,8 +92,8 @@
     },
     "usageScriptPath": {
         "type": "entry",
-        "default": "/home/rowdy/.local/share/cinnamon/applets/claude-usage@rowdy4e/fetch-usage.sh",
-        "description": "Path to the usage fetch script"
+        "default": "",
+        "description": "Path to the usage fetch script (blank = use applet's fetch-usage.sh)"
     },
     "devMode": {
         "type": "checkbox",

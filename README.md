@@ -85,7 +85,45 @@ currently locked.
 
 ## Requirements
 
-- Linux Mint / Cinnamon 6+ (tested on 6.6.7)
-- Python 3 with GTK 3 (already installed by Cinnamon)
-- A Claude Code session — credentials are read from
-  `~/.claude/.credentials.json`
+- **Cinnamon desktop environment** (any distro)
+- Python 3 + GTK 3 (already installed by Cinnamon)
+- A Claude Code session — credentials are read from `~/.claude/.credentials.json`
+
+## Distro compatibility
+
+This is **Cinnamon-specific, not Mint-specific**. Tested on Linux Mint 22.x
+(Cinnamon 6.6.7) but should work on any distro that ships Cinnamon:
+
+| Distro | Status |
+|---|---|
+| Linux Mint Cinnamon | ✅ Tested |
+| Ubuntu Cinnamon Remix | ✅ Should work |
+| Fedora Cinnamon spin | ✅ Should work |
+| Debian + Cinnamon | ✅ Should work |
+| openSUSE + Cinnamon | ✅ Should work |
+| Arch + `cinnamon` AUR | ✅ Should work |
+| **Anything without Cinnamon** | ❌ Won't load |
+
+The install scripts auto-detect the Python user-site directory
+(`python3 -c 'import site; print(site.USER_SITE)'`) so they're not tied
+to a specific Python version.
+
+### Porting to other desktops
+
+If you use **GNOME / KDE / XFCE / Sway / Hyprland**, the panel applet
+(Cinnamon-specific GJS API) and lock-screen widget (cinnamon-screensaver
+specific) won't run. The reusable bits are:
+
+- `applet/fetch-usage.sh` — pure curl + python3, works anywhere as a
+  data source for the `/api/oauth/usage` endpoint
+- The animation logic, Clawd pixel-art bitmaps, and message list are
+  data — easy to port
+
+The actual UI integration needs a per-DE rewrite:
+
+- **GNOME**: a Shell extension (GJS, similar to Cinnamon but different API)
+- **KDE Plasma**: a Plasmoid (QML)
+- **XFCE / MATE / others**: a `genmon` plugin running `fetch-usage.sh`, or
+  a standalone GTK tray app
+
+Pull requests with ports welcome.
