@@ -73,8 +73,8 @@ clawd-cinnamon/
 │   └── lockscreen/             # cinnamon-screensaver hook (no sudo)
 │       ├── usercustomize.py    # site-packages hook — patches Stage class
 │       └── clawd_widget_user.py # GTK/Cairo Clawd widget
-├── gnome/                      # GNOME Shell extension (45+)
-│   └── clawd@rowdy4e/
+├── gnome/
+│   └── extension/              # GNOME Shell extension (45+)
 │       ├── extension.js
 │       ├── metadata.json
 │       ├── stylesheet.css

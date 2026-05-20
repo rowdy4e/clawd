@@ -4,7 +4,7 @@ set -e
 
 UUID="clawd@rowdy4e"
 DEST="$HOME/.local/share/gnome-shell/extensions/$UUID"
-SRC="$(cd "$(dirname "$0")/../gnome/$UUID" && pwd)"
+SRC="$(cd "$(dirname "$0")/../gnome/extension" && pwd)"
 
 mkdir -p "$DEST"
 cp -v "$SRC"/* "$DEST/"
