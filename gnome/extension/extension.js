@@ -205,16 +205,17 @@ class ClawdIndicator extends PanelMenu.Button {
         // Build popup menu
         this._buildMenu();
 
-        // Backup hook: captured-event fires during the capture phase (top-down)
-        // before vfunc_event. If something on the GNOME side intercepts the
-        // right-click before vfunc_event sees it, this still catches it.
+        // Right-click on the panel button → open preferences directly
+        // (mirrors Cinnamon's right-click → Configure UX). captured-event
+        // fires in the capture phase before PanelMenu.Button's internal
+        // left-click menu handler — returning EVENT_STOP for button 3 keeps
+        // the menu from opening on right-click.
         this.connect('captured-event', (_a, event) => {
             try {
                 const type = event.type();
                 const isBtnPress =
                     type === Clutter.EventType.BUTTON_PRESS || type === 4;
                 if (isBtnPress && event.get_button() === 3) {
-                    console.warn('[Clawd] captured-event right-click → openPreferences');
                     this._openPrefs();
                     return Clutter.EVENT_STOP;
                 }
@@ -229,47 +230,10 @@ class ClawdIndicator extends PanelMenu.Button {
         });
     }
 
-    // Right-click on the panel button → open preferences directly.
-    // Mirrors Cinnamon's right-click → Configure UX.
-    //
-    // GNOME 50 quirk: PanelMenu.Button no longer provides a vfunc_event
-    // override, so `super.vfunc_event(event)` throws for every dispatched
-    // event (motion, leave, etc.) — spamming the journal. We return
-    // EVENT_PROPAGATE for the non-intercepted case and let Clutter's
-    // default dispatching (signals on the actor, parent bubble) take it
-    // from there. The left-click menu still works because it's wired
-    // through a signal handler in PanelMenu.Button, not via vfunc.
-    vfunc_event(event) {
-        try {
-            const type = event.type();
-            // Clutter.EventType.BUTTON_PRESS is typically 4 (numeric enum).
-            // Compare against both the symbol and the literal in case the
-            // binding is missing on newer Clutter (GNOME 50+).
-            const isBtnPress =
-                type === Clutter.EventType.BUTTON_PRESS || type === 4;
-            if (isBtnPress) {
-                const btn = event.get_button();
-                console.warn(`[Clawd] vfunc_event BUTTON_PRESS button=${btn} type=${type}`);
-                if (btn === 3) {
-                    this._openPrefs();
-                    return Clutter.EVENT_STOP;
-                }
-            }
-        } catch (e) {
-            // Never let a thrown error here spam the log on every event.
-        }
-        return Clutter.EVENT_PROPAGATE;
-    }
-
     _openPrefs() {
         if (this.menu && this.menu.isOpen) this.menu.close();
-        // GLib.spawn_command_line_async is the simplest fire-and-forget
-        // launcher in GJS — no flags, no Gio.Subprocess object lifecycle.
-        // Works on every GNOME version that ships `gnome-extensions`.
         try {
-            const ok = GLib.spawn_command_line_async(
-                'gnome-extensions prefs clawd@rowdy4e');
-            console.warn('[Clawd] spawn returned ' + ok);
+            GLib.spawn_command_line_async('gnome-extensions prefs clawd@rowdy4e');
         } catch (e) {
             console.warn('[Clawd] prefs spawn threw: ' + (e && e.message ? e.message : e));
         }
