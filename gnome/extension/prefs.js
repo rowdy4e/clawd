@@ -127,6 +127,27 @@ function _writeDefaultMessages() {
     }
 }
 
+// "Are you sure?" before clobbering the user's edited messages. Mirrors the
+// Cinnamon applet's ConfirmDialog so the UX is identical on both DEs.
+function _confirmResetMessages(parentWindow) {
+    const dialog = new Adw.MessageDialog({
+        transient_for: parentWindow,
+        modal: true,
+        heading: 'Reset lock-screen messages?',
+        body: 'This overwrites your edited messages with the bundled defaults. ' +
+              'There is no undo.',
+    });
+    dialog.add_response('cancel', 'Cancel');
+    dialog.add_response('reset', 'Reset');
+    dialog.set_response_appearance('reset', Adw.ResponseAppearance.DESTRUCTIVE);
+    dialog.set_default_response('cancel');
+    dialog.set_close_response('cancel');
+    dialog.connect('response', (_d, response) => {
+        if (response === 'reset') _writeDefaultMessages();
+    });
+    dialog.present();
+}
+
 function _openMessagesEditor() {
     try {
         if (!GLib.file_test(LOCKSCREEN_MESSAGES_FILE, GLib.FileTest.EXISTS)) {
@@ -195,7 +216,7 @@ export default class ClawdPreferences extends ExtensionPreferences {
             'Reset to default messages',
             'Overwrite the messages file with the bundled defaults.',
             'Reset',
-            () => _writeDefaultMessages()));
+            () => _confirmResetMessages(window)));
         page.add(lock);
 
         // ─── Advanced ───
