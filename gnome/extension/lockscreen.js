@@ -77,8 +77,11 @@ class LockClawd extends St.DrawingArea {
         const targetBodyW = Math.floor(monitor.width * 0.12);
         const xUnit = Math.max(6, Math.floor(targetBodyW / COLS));
         const yUnit = xUnit;
+        // Padding scales with xUnit (not yUnit) so the canvas keeps the same
+        // total height as the original 6-row design (where padY was 2*yUnit
+        // and yUnit was 2*xUnit — i.e. 4*xUnit).
         const padX = 2 * xUnit;
-        const padY = 2 * yUnit;
+        const padY = 4 * xUnit;
         const bodyW = xUnit * COLS;
         const bodyH = yUnit * ROWS;
         const canvasW = bodyW + 2 * padX;
