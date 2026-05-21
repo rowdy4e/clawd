@@ -205,24 +205,27 @@ class ClawdIndicator extends PanelMenu.Button {
         // Build popup menu
         this._buildMenu();
 
-        // Right-click → open preferences directly (mirrors Cinnamon's
-        // right-click → Configure on the applet). Left-click still opens
-        // the regular dropdown via PanelMenu.Button's default handler.
-        this.connect('button-press-event', (_actor, event) => {
-            if (event.get_button() === Clutter.BUTTON_SECONDARY) {
-                this.menu.close();
-                try { this._extension.openPreferences(); }
-                catch (e) { console.warn('Clawd: openPreferences failed: ' + e); }
-                return Clutter.EVENT_STOP;
-            }
-            return Clutter.EVENT_PROPAGATE;
-        });
-
         // Initial fetch
         GLib.timeout_add(GLib.PRIORITY_DEFAULT, 300, () => {
             this._refresh();
             return GLib.SOURCE_REMOVE;
         });
+    }
+
+    // Right-click on the panel button → open preferences directly.
+    // PanelMenu.Button.vfunc_event toggles the menu on every BUTTON_PRESS,
+    // so a signal-level button-press-event handler can't intercept in time —
+    // overriding the vfunc is the only reliable hook. Mirrors Cinnamon's
+    // right-click → Configure UX.
+    vfunc_event(event) {
+        if (event.type() === Clutter.EventType.BUTTON_PRESS &&
+            event.get_button() === Clutter.BUTTON_SECONDARY) {
+            if (this.menu.isOpen) this.menu.close();
+            try { this._extension.openPreferences(); }
+            catch (e) { console.warn('Clawd: openPreferences failed: ' + e); }
+            return Clutter.EVENT_STOP;
+        }
+        return super.vfunc_event(event);
     }
 
     // ─── Animation tick ───
