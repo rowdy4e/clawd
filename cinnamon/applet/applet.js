@@ -10,6 +10,39 @@ const Clutter = imports.gi.Clutter;
 const Cairo = imports.cairo;
 
 const APPLET_DIR = GLib.get_home_dir() + "/.local/share/cinnamon/applets/claude-usage@rowdy4e";
+const LOCKSCREEN_CONFIG_DIR = GLib.get_home_dir() + "/.config/clawd-lockscreen";
+const LOCKSCREEN_MESSAGES_FILE = LOCKSCREEN_CONFIG_DIR + "/messages";
+
+// Default lock-screen messages — written to the messages file on first edit
+// so the user has something to start from. The widget falls back to its own
+// built-in defaults if the file is missing entirely.
+const DEFAULT_LOCKSCREEN_MESSAGES = [
+    "You're absolutely right!",
+    "Let me think about this more carefully...",
+    "Actually, on reflection — yes, that.",
+    "Hmm, you raise a good point.",
+    "404: Motivation not found.",
+    "It works on my machine ¯\\_(ツ)_/¯",
+    "Just one more refactor, I promise.",
+    "TODO: rename this variable later.",
+    "git push --force or die trying.",
+    "Have you tried turning it off and on again?",
+    "Stack Overflow is your spirit animal.",
+    "Naming things is hard.",
+    "There are 2 hard problems: cache invalidation, naming things, off-by-one errors.",
+    "Today's bug is tomorrow's feature.",
+    "Code never lies. Comments sometimes do.",
+    "Make it work, make it right, make it fast.",
+    "Premature optimization is the root of all evil.",
+    "Why do programmers prefer dark mode? Bugs hate the light.",
+    "There's no place like 127.0.0.1",
+    "I'd tell you a UDP joke, but you might not get it.",
+    "A SQL query walks into a bar — sees two tables — asks: mind if I join you?",
+    "Take a deep breath. The compiler can wait.",
+    "Did you remember to commit?",
+    "Sip your coffee. The bug will still be there.",
+    "Step away for 5 minutes. Solutions appear in the shower."
+];
 
 // ─── Pixel-art forms loaded from cinnamon/shared/forms.json ───
 // Single source of truth shared with the Python lock-screen widget.
@@ -161,6 +194,9 @@ class ClaudeUsageApplet extends Applet.Applet {
         this._lastLockscreenVal = null; // unknown on init — first call won't restart
         this.settings.bind("lockscreenEnabled", "lockscreenEnabled", this._onLockscreenToggle.bind(this));
         this._onLockscreenToggle(); // initial sync, no restart
+        // Watch the messages file — when the user saves in their editor we
+        // restart cinnamon-screensaver so edits take effect on next lock.
+        this._setupMessagesFileMonitor();
 
         // Drawing canvas sized to panel. We want the overall icon to be the
         // same physical size regardless of ROWS — so xUnit is computed against
@@ -1138,6 +1174,52 @@ class ClaudeUsageApplet extends Applet.Applet {
         if (!isInitial) this._maybeRestartScreensaver();
     }
 
+    // Settings button — opens the messages file in the user's default text
+    // editor. If the file doesn't exist yet, seed it with the defaults so the
+    // user has a starting point.
+    openLockscreenMessages() {
+        try {
+            GLib.mkdir_with_parents(LOCKSCREEN_CONFIG_DIR, parseInt("755", 8));
+            if (!GLib.file_test(LOCKSCREEN_MESSAGES_FILE, GLib.FileTest.EXISTS)) {
+                GLib.file_set_contents(LOCKSCREEN_MESSAGES_FILE,
+                    DEFAULT_LOCKSCREEN_MESSAGES.join("\n") + "\n");
+            }
+            Gio.Subprocess.new(["xdg-open", LOCKSCREEN_MESSAGES_FILE],
+                Gio.SubprocessFlags.NONE);
+        } catch (e) {
+            global.log && global.log("Clawd: open messages editor failed: " + e.toString());
+        }
+    }
+
+    // Settings button — overwrites the messages file with the built-in
+    // defaults. File monitor catches the change and restarts the screensaver.
+    resetLockscreenMessages() {
+        try {
+            GLib.mkdir_with_parents(LOCKSCREEN_CONFIG_DIR, parseInt("755", 8));
+            GLib.file_set_contents(LOCKSCREEN_MESSAGES_FILE,
+                DEFAULT_LOCKSCREEN_MESSAGES.join("\n") + "\n");
+        } catch (e) {
+            global.log && global.log("Clawd: reset messages failed: " + e.toString());
+        }
+    }
+
+    // Watch the messages file — when the user edits it externally and saves,
+    // restart cinnamon-screensaver so the widget re-reads the file next lock.
+    _setupMessagesFileMonitor() {
+        try {
+            let file = Gio.File.new_for_path(LOCKSCREEN_MESSAGES_FILE);
+            this._messagesMonitor = file.monitor_file(Gio.FileMonitorFlags.NONE, null);
+            this._messagesMonitor.connect("changed", (mon, f, otherFile, eventType) => {
+                if (eventType === Gio.FileMonitorEvent.CHANGES_DONE_HINT ||
+                    eventType === Gio.FileMonitorEvent.CREATED) {
+                    this._maybeRestartScreensaver();
+                }
+            });
+        } catch (e) {
+            global.log && global.log("Clawd: messages file monitor setup failed: " + e.toString());
+        }
+    }
+
     // Restart cinnamon-screensaver — but only if it's not currently locked.
     // ALL subprocess calls are async so the Cinnamon main thread never blocks.
     _maybeRestartScreensaver() {
@@ -1175,6 +1257,7 @@ class ClaudeUsageApplet extends Applet.Applet {
         if (this._timeout) { Mainloop.source_remove(this._timeout); this._timeout = null; }
         if (this._idleTimeout) { Mainloop.source_remove(this._idleTimeout); this._idleTimeout = null; }
         if (this._blinkTimeout) { Mainloop.source_remove(this._blinkTimeout); this._blinkTimeout = null; }
+        if (this._messagesMonitor) { this._messagesMonitor.cancel(); this._messagesMonitor = null; }
         this._stopBreathing();
     }
 }

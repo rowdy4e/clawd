@@ -5,7 +5,7 @@
         "page1": {
             "type": "page",
             "title": "Settings",
-            "sections": ["display", "animation", "advanced"]
+            "sections": ["display", "animation", "lockscreen", "advanced"]
         },
         "display": {
             "type": "section",
@@ -17,10 +17,15 @@
             "title": "Animation",
             "keys": ["animationStyle", "animateOnRefresh", "idleAnimations", "idleMinSeconds", "idleMaxSeconds"]
         },
+        "lockscreen": {
+            "type": "section",
+            "title": "Lock screen",
+            "keys": ["lockscreenEnabled", "editLockscreenMessages", "resetLockscreenMessages"]
+        },
         "advanced": {
             "type": "section",
             "title": "Advanced",
-            "keys": ["usageScriptPath", "devMode", "lockscreenEnabled"]
+            "keys": ["usageScriptPath", "devMode"]
         }
     },
     "refreshSeconds": {
@@ -104,5 +109,15 @@
         "type": "checkbox",
         "default": true,
         "description": "Show animated Clawd on the lock screen (next time you lock)"
+    },
+    "editLockscreenMessages": {
+        "type": "button",
+        "description": "Edit lock-screen messages…",
+        "callback": "openLockscreenMessages"
+    },
+    "resetLockscreenMessages": {
+        "type": "button",
+        "description": "Reset to default messages",
+        "callback": "resetLockscreenMessages"
     }
 }

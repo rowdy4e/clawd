@@ -29,6 +29,7 @@ from anim_runner import AnimationRunner
 
 
 CONFIG_FILE = os.path.expanduser("~/.config/clawd-lockscreen/enabled")
+MESSAGES_FILE = os.path.expanduser("~/.config/clawd-lockscreen/messages")
 
 # Target: Clawd's body width ≈ TARGET_WIDTH_RATIO of monitor width.
 TARGET_WIDTH_RATIO = 0.10
@@ -40,6 +41,19 @@ def _is_lockscreen_enabled():
             return f.read().strip() != "0"
     except (IOError, OSError):
         return True  # default enabled
+
+
+def _load_user_messages():
+    """Read user-edited message list (one per line) from MESSAGES_FILE.
+    Returns the parsed list, or None if file missing/unreadable so the caller
+    can fall back to the built-in defaults."""
+    try:
+        with open(MESSAGES_FILE) as f:
+            lines = [ln.strip() for ln in f.read().splitlines()]
+            lines = [ln for ln in lines if ln]
+            return lines if lines else None
+    except (IOError, OSError):
+        return None
 
 
 def _load_shared(name):
@@ -111,6 +125,13 @@ MESSAGES = [
     "Sip your coffee. The bug will still be there.",
     "Step away for 5 minutes. Solutions appear in the shower.",
 ]
+
+# If the user has edited the messages list via the panel applet, use those
+# instead. Defaults above stay as fallback when the config file is missing.
+_user_messages = _load_user_messages()
+if _user_messages:
+    MESSAGES = _user_messages
+
 MESSAGE_DURATION_MS = 6500
 MESSAGE_INTERVAL_MIN = 35000
 MESSAGE_INTERVAL_MAX = 80000
