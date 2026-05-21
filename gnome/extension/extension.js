@@ -583,32 +583,67 @@ class ClawdIndicator extends PanelMenu.Button {
         if (!this._settings || !this._settings.get_boolean('dev-mode')) return;
 
         const sub = new PopupMenu.PopupSubMenuMenuItem('Animation playground');
-        // Derive animations from animations.json so newly-added entries appear
-        // automatically. Easter eggs (e.g. grow) included so you can trigger
-        // them on demand here.
-        const anims = this._runner.listAnimations();
-        for (const name of anims) {
-            const it = new PopupMenu.PopupMenuItem(name);
-            it.connect('activate', () => {
-                this._animBusy = false;
-                this._playAnimation(name);
-            });
-            sub.menu.addMenuItem(it);
-        }
-        // Morph to: one entry per panel-allowed form. Each forces the runner's
+
+        // Build a 2-column grid of St.Buttons inside the given submenu.
+        // PopupMenuItem.activate() closes the parent menu, which breaks rapid
+        // experimentation — using real St.Buttons inside a reactive:false
+        // row keeps the submenu open. Mirrors the Cinnamon applet.
+        const buildGrid = (parentMenu, items, onClick) => {
+            const PER_ROW = 2;
+            for (let i = 0; i < items.length; i += PER_ROW) {
+                const row = new PopupMenu.PopupBaseMenuItem({
+                    reactive: false, activate: false, hover: false,
+                });
+                const box = new St.BoxLayout({
+                    vertical: false,
+                    style_class: 'clawd-playground-row',
+                    x_expand: true,
+                });
+                for (let j = 0; j < PER_ROW; j++) {
+                    if (i + j < items.length) {
+                        const it = items[i + j];
+                        const btn = new St.Button({
+                            label: it.label,
+                            can_focus: true,
+                            x_expand: true,
+                            x_align: Clutter.ActorAlign.FILL,
+                            style_class: 'clawd-playground-btn',
+                        });
+                        btn.connect('clicked', () => onClick(it.value));
+                        box.add_child(btn);
+                    } else {
+                        // Spacer so a trailing odd item doesn't span full width.
+                        box.add_child(new St.Widget({x_expand: true}));
+                    }
+                }
+                row.add_child(box);
+                parentMenu.addMenuItem(row);
+            }
+        };
+
+        // Animations — derived from animations.json so newly-added entries
+        // appear automatically. Easter eggs (e.g. grow) included so you can
+        // trigger them on demand here.
+        const anims = this._runner.listAnimations()
+            .map(n => ({label: '▶ ' + n, value: n}));
+        buildGrid(sub.menu, anims, name => {
+            this._animBusy = false;
+            this._playAnimation(name);
+        });
+
+        // Morph to: one button per panel-allowed form. Each forces the runner's
         // morph animation to target that form via randomLists override.
-        const formSub = new PopupMenu.PopupSubMenuMenuItem('Morph to…');
-        for (const k of MORPH_TARGETS) {
-            const it = new PopupMenu.PopupMenuItem(k);
-            it.connect('activate', () => {
-                this._resetMotion();
-                this._animBusy = true;
-                this._runner.play('morph', () => this._animDone(),
-                    {randomLists: {MORPH_TARGETS: [k]}});
-            });
-            formSub.menu.addMenuItem(it);
-        }
-        sub.menu.addMenuItem(formSub);
+        sub.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+        const header = new PopupMenu.PopupMenuItem('Morph to…', {reactive: false});
+        sub.menu.addMenuItem(header);
+        const forms = MORPH_TARGETS.map(n => ({label: '◆ ' + n, value: n}));
+        buildGrid(sub.menu, forms, formName => {
+            this._resetMotion();
+            this._animBusy = true;
+            this._runner.play('morph', () => this._animDone(),
+                {randomLists: {MORPH_TARGETS: [formName]}});
+        });
+
         this.menu.addMenuItem(sub);
         this._playgroundItem = sub;
     }
