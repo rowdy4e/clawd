@@ -77,5 +77,11 @@
       <summary>Show animated Clawd on the lock screen</summary>
       <description>When enabled, an animated Clawd appears in the corner of the lock screen with a rotating speech bubble and a rare grow easter egg.</description>
     </key>
+
+    <key name="lockscreen-position-bottom" type="b">
+      <default>true</default>
+      <summary>Place lockscreen Clawd at the bottom of the screen</summary>
+      <description>When true (default), the lockscreen Clawd appears at the bottom of the screen. When false, it appears just below the top panel.</description>
+    </key>
   </schema>
 </schemalist>

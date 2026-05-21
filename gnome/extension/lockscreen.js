@@ -71,32 +71,38 @@ function makeState() {
 export const LockClawd = GObject.registerClass(
 class LockClawd extends St.DrawingArea {
     _init(monitor) {
-        // Sizing: pixel size targets ~10% of monitor width for the Clawd body.
-        const targetBodyW = Math.floor(monitor.width * 0.10);
+        // Sized to fit inside the clock BoxLayout below the date
+        const targetBodyW = Math.floor(monitor.width * 0.12);
         const xUnit = Math.max(6, Math.floor(targetBodyW / COLS));
         const yUnit = xUnit * 2;
-        const padX = 4 * xUnit;
-        const padY = 4 * yUnit;
-        const canvasW = xUnit * COLS + 2 * padX;
-        const canvasH = yUnit * ROWS + 2 * padY;
+        const padX = 2 * xUnit;
+        const padY = 2 * yUnit;
+        const bodyW = xUnit * COLS;
+        const bodyH = yUnit * ROWS;
+        const canvasW = bodyW + 2 * padX;
+        const canvasH = bodyH + 2 * padY;
 
-        const marginX = Math.floor(monitor.width * 0.06);
-        const marginY = Math.floor(monitor.height * 0.10);
+        // Inside a BoxLayout these (x,y) are ignored; included for safety
+        const cx = 0, cy = 0;
 
         super._init({
             width: canvasW,
             height: canvasH,
-            x: monitor.x + monitor.width - canvasW - marginX + padX,
-            y: monitor.y + monitor.height - canvasH - marginY + padY,
+            x: cx,
+            y: cy,
             reactive: false,
             can_focus: false,
             track_hover: false,
+            opacity: 255,
         });
+        log(`[clawd] LockClawd._init w=${canvasW} h=${canvasH} x=${cx} y=${cy} (monitor ${monitor.width}x${monitor.height} @ ${monitor.x},${monitor.y})`);
 
         this._xUnit = xUnit;
         this._yUnit = yUnit;
         this._canvasW = canvasW;
         this._canvasH = canvasH;
+        this._fixedX = cx;
+        this._fixedY = cy;
         this.connect('repaint', this._draw.bind(this));
 
         // State
@@ -130,6 +136,15 @@ class LockClawd extends St.DrawingArea {
         }
         this._tickId = this._blinkId = this._idleId = null;
         super.destroy();
+    }
+
+    // Force preferred size so layout-managed parents (e.g. modalDialogGroup)
+    // can't crush us. Both min and natural return canvas dims.
+    vfunc_get_preferred_width(_forHeight) {
+        return [this._canvasW, this._canvasW];
+    }
+    vfunc_get_preferred_height(_forWidth) {
+        return [this._canvasH, this._canvasH];
     }
 
     // ─── Tick: tweens, breath, bubble cycle ───
@@ -184,12 +199,28 @@ class LockClawd extends St.DrawingArea {
         const cr = (area || this).get_context();
         const [w, h] = (area || this).get_surface_size();
 
-        // Debug: faint magenta border around the whole canvas so we can
-        // confirm the actor is actually allocated + visible. Remove later.
-        cr.setSourceRGBA(1, 0, 1, 0.4);
-        cr.setLineWidth(2);
-        cr.rectangle(1, 1, w - 2, h - 2);
+        // DIAG: log first few paints so we know _draw fires when locked
+        this._paintCount = (this._paintCount || 0) + 1;
+        if (this._paintCount <= 3 || this._paintCount % 60 === 0) {
+            log(`[clawd] _draw #${this._paintCount} surface=${w}x${h} mapped=${this.mapped} visible=${this.visible} opacity=${this.opacity}`);
+        }
+
+        // DIAG NUCLEAR: solid OPAQUE red full-screen — covers everything
+        cr.setSourceRGBA(1, 0, 0, 1);
+        cr.rectangle(0, 0, w, h);
+        cr.fill();
+
+        // DIAG: bright neon green border around full screen edges
+        cr.setSourceRGBA(0, 1, 0, 1);
+        cr.setLineWidth(20);
+        cr.rectangle(10, 10, w - 20, h - 20);
         cr.stroke();
+
+        // DIAG: huge "X" diagonal lines in bright yellow to confirm canvas size
+        cr.setSourceRGBA(1, 1, 0, 1);
+        cr.setLineWidth(15);
+        cr.moveTo(0, 0);     cr.lineTo(w, h); cr.stroke();
+        cr.moveTo(w, 0);     cr.lineTo(0, h); cr.stroke();
 
         if (this._bubbleAlpha > 0.02) {
             this._drawBubble(cr, w);
@@ -475,15 +506,29 @@ export class LockClawdManager {
         log(`[clawd] LockClawdManager.enable; screenShield=${!!shield} active=${shield ? shield.active : '?'}`);
         if (!shield) return;
 
-        // GNOME 45+ uses notify::active on the screenShield property; older
-        // versions emitted 'active-changed' / 'lock-status-changed'. Wire all
-        // three — whichever fires, we react.
-        for (const sig of ['notify::active', 'active-changed', 'lock-status-changed']) {
+        // Belt + suspenders: subscribe to every signal that could indicate a
+        // shield state change. GNOME 50 doesn't emit notify::active reliably
+        // around unlock; unlock-complete is the canonical "fully unlocked".
+        for (const sig of [
+            'notify::active',
+            'notify::locked',
+            'active-changed',
+            'lock-status-changed',
+            'unlock-complete',
+            'lock-screen-shown',
+            'wake-up-screen',
+        ]) {
             try {
                 const id = shield.connect(sig, () => this._sync());
                 this._handlerIds.push([shield, id]);
             } catch (e) {}
         }
+        // Safety net: poll every 500ms — cheap, ensures we hide if every
+        // signal somehow misses.
+        this._pollId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 500, () => {
+            this._sync();
+            return GLib.SOURCE_CONTINUE;
+        });
         try {
             const id = this._settings.connect('changed::lockscreen-enabled', () => this._sync());
             this._handlerIds.push([this._settings, id]);
@@ -497,6 +542,10 @@ export class LockClawdManager {
     disable() {
         if (!this._enabled) return;
         this._enabled = false;
+        if (this._pollId) {
+            try { GLib.source_remove(this._pollId); } catch (e) {}
+            this._pollId = null;
+        }
         for (const [obj, id] of this._handlerIds) {
             try { obj.disconnect(id); } catch (e) {}
         }
@@ -504,38 +553,66 @@ export class LockClawdManager {
         this._destroyWidget();
     }
 
-    // Try several known parents in order of preference. uiGroup is bottom-
-    // most when locked (shield covers it), so we MUST reparent to something
-    // inside the screen shield to be visible on the lock screen.
-    _pickParent() {
+    // GNOME 50 trick: lockscreen renders via a compositor path that bypasses
+    // most Clutter actors — even uiGroup top chrome is invisible. The ONLY
+    // way found to be visible is to inject INSIDE the live unlock dialog's
+    // own visible widgets. _dialog._clock is the BoxLayout (vertical) that
+    // contains the time/date/hint labels — adding our widget as a child
+    // appends us below those, perfectly visible on the lockscreen.
+    _candidates() {
         const shield = Main.screenShield;
-        const candidates = [
-            ['screenShield._lockScreenGroup',  shield && shield._lockScreenGroup],
-            ['screenShield._lockScreenContents', shield && shield._lockScreenContents],
-            ['layoutManager.screenShieldGroup',  Main.layoutManager.screenShieldGroup],
-            ['layoutManager.uiGroup',            Main.layoutManager.uiGroup],
+        const dialog = shield && shield._dialog;
+        const clock  = dialog && dialog._clock;
+        const stack  = dialog && dialog._stack;
+        return [
+            ['shield._dialog._clock',           clock],
+            ['shield._dialog._stack',           stack],
+            ['shield._dialog',                  dialog],
+            ['shield._lockDialogGroup',         shield && shield._lockDialogGroup],
+            ['shield._lockScreenGroup',         shield && shield._lockScreenGroup],
+            ['layoutManager.screenShieldGroup', Main.layoutManager.screenShieldGroup],
+            ['global.stage',                    global.stage],
         ];
-        for (const [name, obj] of candidates) {
-            if (obj && typeof obj.add_child === 'function') {
-                log(`[clawd] using parent: ${name}`);
-                return obj;
+    }
+
+    _logCandidates(tag) {
+        for (const [name, obj] of this._candidates()) {
+            if (!obj) { log(`[clawd] ${tag} ${name}: MISSING`); continue; }
+            const m = obj.mapped, v = obj.visible, op = obj.opacity;
+            const can = typeof obj.add_child === 'function';
+            log(`[clawd] ${tag} ${name}: addChild=${can} mapped=${m} visible=${v} opacity=${op}`);
+        }
+    }
+
+    _pickMappedParent() {
+        for (const [name, obj] of this._candidates()) {
+            if (obj && typeof obj.add_child === 'function' && obj.mapped && obj.visible) {
+                return [name, obj];
             }
         }
-        log('[clawd] no usable parent found');
-        return null;
+        return [null, null];
+    }
+
+    _pickAnyParent() {
+        for (const [name, obj] of this._candidates()) {
+            if (obj && typeof obj.add_child === 'function') return [name, obj];
+        }
+        return [null, null];
     }
 
     _createWidget() {
         try {
             const monitor = Main.layoutManager.primaryMonitor;
             if (!monitor) { log('[clawd] no primary monitor'); return; }
-            const parent = this._pickParent();
-            if (!parent) return;
             this._widget = new LockClawd(monitor);
             this._widget.visible = false;
+            // Initial: park under any available container. We'll reparent at
+            // lock time to the live UnlockDialog clock BoxLayout.
+            const [name, parent] = this._pickAnyParent();
+            if (!parent) { log('[clawd] no usable parent at create time'); return; }
             parent.add_child(this._widget);
             this._parent = parent;
-            log(`[clawd] LockClawd attached at ${this._widget.x},${this._widget.y} size ${this._widget.width}x${this._widget.height}`);
+            log(`[clawd] LockClawd parked under ${name}`);
         } catch (e) {
             logError(e, 'LockClawdManager._createWidget');
         }
@@ -548,21 +625,134 @@ export class LockClawdManager {
         this._parent = null;
     }
 
+    _reparentIfNeeded() {
+        const w = this._widget;
+        if (!w) return;
+        const [name, parent] = this._pickMappedParent();
+        if (!parent) {
+            log('[clawd] _reparent: no mapped parent currently');
+            return;
+        }
+        if (parent === this._parent) {
+            log(`[clawd] _reparent: keep ${name} (already mapped)`);
+            return;
+        }
+        try {
+            const cur = w.get_parent();
+            if (cur && typeof cur.remove_child === 'function') {
+                cur.remove_child(w);
+            }
+            parent.add_child(w);
+            this._parent = parent;
+            log(`[clawd] _reparent -> ${name} mapped=${parent.mapped} visible=${parent.visible}`);
+        } catch (e) {
+            logError(e, 'LockClawdManager._reparentIfNeeded');
+        }
+    }
+
     _sync() {
         const shield = Main.screenShield;
         if (!shield || !this._widget) return;
         const enabled = this._settings.get_boolean('lockscreen-enabled');
-        const want = enabled && shield.active;
-        log(`[clawd] _sync: enabled=${enabled} active=${shield.active} want=${want}`);
-        if (want) {
-            this._widget.visible = true;
-            try {
-                if (this._parent && typeof this._parent.set_child_above_sibling === 'function') {
-                    this._parent.set_child_above_sibling(this._widget, null);
-                }
-            } catch (e) {}
-        } else {
-            this._widget.visible = false;
+        // GNOME 50: 'active' flickers off ~100 ms into lock when unlock prompt
+        // takes over. 'locked' stays true for the whole lock cycle until the
+        // user enters their password. Trigger on locked so the widget is
+        // visible through both phases.
+        const want = enabled && (shield.locked || shield.active);
+        // Throttle logs once we've seen state stable
+        if (this._lastWant !== want || (this._syncLogCount = (this._syncLogCount || 0) + 1) <= 4) {
+            log(`[clawd] _sync: enabled=${enabled} active=${shield.active} locked=${shield.locked} want=${want}`);
+            this._lastWant = want;
         }
+        if (!want) {
+            if (this._wasWant) {
+                log('[clawd] _sync: hiding widget (want -> false)');
+                this._wasWant = false;
+            }
+            this._widget.hide();
+            return;
+        }
+        const wasWant = this._wasWant;
+        this._wasWant = true;
+        if (!wasWant) this._logCandidates('cand');
+        this._reparentIfNeeded();
+        this._widget.show();
+        this._widget.opacity = 255;
+        // Force position every sync — defensive against layout managers that
+        // might reposition children. set_position works on St.Widget directly.
+        try {
+            if (typeof this._widget.set_position === 'function') {
+                this._widget.set_position(this._widget._fixedX, this._widget._fixedY);
+            }
+            if (typeof this._widget.set_size === 'function') {
+                this._widget.set_size(this._widget._canvasW, this._widget._canvasH);
+            }
+        } catch (e) {}
+        try {
+            if (this._parent && typeof this._parent.set_child_above_sibling === 'function') {
+                this._parent.set_child_above_sibling(this._widget, null);
+            }
+        } catch (e) {}
+        // Belt + suspenders for z-order: set 3D z_position high enough to be
+        // drawn above siblings regardless of paint order. Clutter respects
+        // z_position during paint depth-sorting.
+        try {
+            this._widget.z_position = 9999;
+            if (typeof this._widget.set_pivot_point === 'function') {
+                this._widget.set_pivot_point(0.5, 0.5);
+            }
+        } catch (e) {}
+        // Diagnostic: log child indices to verify our paint position.
+        if (!wasWant) {
+            try {
+                const stage = global.stage;
+                const sChildren = stage.get_children();
+                const wIdx = sChildren.indexOf(this._widget);
+                let shieldIdx = -1;
+                if (Main.layoutManager.screenShieldGroup) {
+                    shieldIdx = sChildren.indexOf(Main.layoutManager.screenShieldGroup);
+                }
+                log(`[clawd] stage: ${sChildren.length} children, widget@${wIdx}, shieldGroup@${shieldIdx}, z_position=${this._widget.z_position}`);
+                // Dump last few siblings (the high z-order range)
+                const tail = sChildren.slice(Math.max(0, sChildren.length - 5));
+                tail.forEach((ch, i) => {
+                    const idx = sChildren.length - tail.length + i;
+                    const cls = ch.constructor && ch.constructor.$gtype ? ch.constructor.$gtype.name : 'unknown';
+                    log(`[clawd] stage[${idx}]: ${cls} mapped=${ch.mapped} visible=${ch.visible} opacity=${ch.opacity}`);
+                });
+                // Also dump uiGroup children — find our index + what's above us
+                const ug = Main.layoutManager.uiGroup;
+                if (ug) {
+                    const uChildren = ug.get_children();
+                    const uwIdx = uChildren.indexOf(this._widget);
+                    log(`[clawd] uiGroup: ${uChildren.length} children, widget@${uwIdx}`);
+                    // Anything ABOVE us (drawn on top) is concerning
+                    const above = uChildren.slice(uwIdx + 1);
+                    if (above.length > 0) {
+                        log(`[clawd] ${above.length} child(ren) ABOVE widget in uiGroup:`);
+                        above.forEach((ch, i) => {
+                            const idx = uwIdx + 1 + i;
+                            const cls = ch.constructor && ch.constructor.$gtype ? ch.constructor.$gtype.name : 'unknown';
+                            log(`[clawd] uiGroup[${idx}]: ${cls} name=${ch.name || '?'} mapped=${ch.mapped} visible=${ch.visible} opacity=${ch.opacity}`);
+                        });
+                    } else {
+                        log('[clawd] widget is LAST child of uiGroup (top z-order)');
+                    }
+                }
+            } catch (e) { logError(e, '_sync stage diag'); }
+        }
+        if (!wasWant) {
+            try {
+                const p = this._parent;
+                const w = this._widget;
+                const box = w.get_allocation_box ? w.get_allocation_box() : null;
+                log(`[clawd] _sync post-show: widget mapped=${w.mapped} visible=${w.visible} opacity=${w.opacity} alloc=${box ? `${box.x1.toFixed(0)},${box.y1.toFixed(0)}->${box.x2.toFixed(0)},${box.y2.toFixed(0)}` : 'n/a'}`);
+                if (p) {
+                    log(`[clawd] _sync parent: ${p.constructor && p.constructor.$gtype ? p.constructor.$gtype.name : 'unknown'} mapped=${p.mapped} visible=${p.visible} opacity=${p.opacity}`);
+                }
+            } catch (e) { logError(e, '_sync diag'); }
+        }
+        this._widget.queue_redraw && this._widget.queue_redraw();
+        this._widget.queue_repaint && this._widget.queue_repaint();
     }
 }
