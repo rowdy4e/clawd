@@ -129,7 +129,33 @@ function _writeDefaultMessages() {
 
 // "Are you sure?" before clobbering the user's edited messages. Mirrors the
 // Cinnamon applet's ConfirmDialog so the UX is identical on both DEs.
+//
+// Uses Adw.AlertDialog when available (libadwaita 1.5+ / GNOME 47+) and
+// falls back to the older Adw.MessageDialog otherwise. AlertDialog has a
+// different lifecycle: no transient_for/modal in the constructor, and
+// present() takes a parent *widget* (not a window).
 function _confirmResetMessages(parentWindow) {
+    const onResponse = (_d, response) => {
+        if (response === 'reset') _writeDefaultMessages();
+    };
+
+    if (typeof Adw.AlertDialog === 'function') {
+        const dialog = new Adw.AlertDialog({
+            heading: 'Reset lock-screen messages?',
+            body: 'This overwrites your edited messages with the bundled defaults. ' +
+                  'There is no undo.',
+        });
+        dialog.add_response('cancel', 'Cancel');
+        dialog.add_response('reset', 'Reset');
+        dialog.set_response_appearance('reset', Adw.ResponseAppearance.DESTRUCTIVE);
+        dialog.set_default_response('cancel');
+        dialog.set_close_response('cancel');
+        dialog.connect('response', onResponse);
+        dialog.present(parentWindow);
+        return;
+    }
+
+    // Fallback for libadwaita < 1.5 (GNOME 45-46).
     const dialog = new Adw.MessageDialog({
         transient_for: parentWindow,
         modal: true,
@@ -142,9 +168,7 @@ function _confirmResetMessages(parentWindow) {
     dialog.set_response_appearance('reset', Adw.ResponseAppearance.DESTRUCTIVE);
     dialog.set_default_response('cancel');
     dialog.set_close_response('cancel');
-    dialog.connect('response', (_d, response) => {
-        if (response === 'reset') _writeDefaultMessages();
-    });
+    dialog.connect('response', onResponse);
     dialog.present();
 }
 
