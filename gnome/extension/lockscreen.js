@@ -201,29 +201,6 @@ class LockClawd extends St.DrawingArea {
         const cr = (area || this).get_context();
         const [w, h] = (area || this).get_surface_size();
 
-        // DIAG: log first few paints so we know _draw fires when locked
-        this._paintCount = (this._paintCount || 0) + 1;
-        if (this._paintCount <= 3 || this._paintCount % 60 === 0) {
-            log(`[clawd] _draw #${this._paintCount} surface=${w}x${h} mapped=${this.mapped} visible=${this.visible} opacity=${this.opacity}`);
-        }
-
-        // DIAG NUCLEAR: solid OPAQUE red full-screen — covers everything
-        cr.setSourceRGBA(1, 0, 0, 1);
-        cr.rectangle(0, 0, w, h);
-        cr.fill();
-
-        // DIAG: bright neon green border around full screen edges
-        cr.setSourceRGBA(0, 1, 0, 1);
-        cr.setLineWidth(20);
-        cr.rectangle(10, 10, w - 20, h - 20);
-        cr.stroke();
-
-        // DIAG: huge "X" diagonal lines in bright yellow to confirm canvas size
-        cr.setSourceRGBA(1, 1, 0, 1);
-        cr.setLineWidth(15);
-        cr.moveTo(0, 0);     cr.lineTo(w, h); cr.stroke();
-        cr.moveTo(w, 0);     cr.lineTo(0, h); cr.stroke();
-
         if (this._bubbleAlpha > 0.02) {
             this._drawBubble(cr, w);
         }
