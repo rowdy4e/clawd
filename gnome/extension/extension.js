@@ -205,6 +205,23 @@ class ClawdIndicator extends PanelMenu.Button {
         // Build popup menu
         this._buildMenu();
 
+        // Backup hook: captured-event fires during the capture phase (top-down)
+        // before vfunc_event. If something on the GNOME side intercepts the
+        // right-click before vfunc_event sees it, this still catches it.
+        this.connect('captured-event', (_a, event) => {
+            try {
+                const type = event.type();
+                const isBtnPress =
+                    type === Clutter.EventType.BUTTON_PRESS || type === 4;
+                if (isBtnPress && event.get_button() === 3) {
+                    console.warn('[Clawd] captured-event right-click → openPreferences');
+                    this._openPrefs();
+                    return Clutter.EVENT_STOP;
+                }
+            } catch (e) {}
+            return Clutter.EVENT_PROPAGATE;
+        });
+
         // Initial fetch
         GLib.timeout_add(GLib.PRIORITY_DEFAULT, 300, () => {
             this._refresh();
@@ -224,11 +241,19 @@ class ClawdIndicator extends PanelMenu.Button {
     // through a signal handler in PanelMenu.Button, not via vfunc.
     vfunc_event(event) {
         try {
-            if (event.type() === Clutter.EventType.BUTTON_PRESS &&
-                event.get_button() === 3) {
-                console.warn('[Clawd] right-click on indicator → openPreferences');
-                this._openPrefs();
-                return Clutter.EVENT_STOP;
+            const type = event.type();
+            // Clutter.EventType.BUTTON_PRESS is typically 4 (numeric enum).
+            // Compare against both the symbol and the literal in case the
+            // binding is missing on newer Clutter (GNOME 50+).
+            const isBtnPress =
+                type === Clutter.EventType.BUTTON_PRESS || type === 4;
+            if (isBtnPress) {
+                const btn = event.get_button();
+                console.warn(`[Clawd] vfunc_event BUTTON_PRESS button=${btn} type=${type}`);
+                if (btn === 3) {
+                    this._openPrefs();
+                    return Clutter.EVENT_STOP;
+                }
             }
         } catch (e) {
             // Never let a thrown error here spam the log on every event.
