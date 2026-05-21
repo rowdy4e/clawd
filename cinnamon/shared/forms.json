@@ -159,55 +159,24 @@
       ]
     },
     "skull": {
-      "color": [0.92, 0.92, 0.95],
+      "color": [0.94, 0.94, 0.88],
+      "palette": {
+        "W": [0.94, 0.94, 0.88],
+        "K": [0.08, 0.08, 0.10]
+      },
       "pixels": [
-        "..................",
-        ".....OOOOOOOO.....",
-        "....OOOOOOOOOO....",
-        "...OOOOOOOOOOOO...",
-        "...OO..OOOO..OO...",
-        "...OO..OOOO..OO...",
-        "...OOOOO..OOOOO...",
-        "...OOOOOOOOOOOO...",
-        "....OOOOOOOOOO....",
-        "....O..O..O..O....",
-        ".....OOOOOOOO.....",
+        "....WWWWWWWWWW....",
+        "..WWWWWWWWWWWWWW..",
+        ".WWWWWWWWWWWWWWWW.",
+        ".WWKKKKWWWWKKKKWW.",
+        ".WWKKKKWWWWKKKKWW.",
+        ".WWWWWWWKKWWWWWWW.",
+        ".WWWWWWWWWWWWWWWW.",
+        "..WWWWWWWWWWWWWW..",
+        "...WWWWWWWWWWWW...",
+        "....WWWWWWWWWW....",
+        "....W..W..W..W....",
         ".................."
-      ]
-    },
-    "yoda": {
-      "color": [0.62, 0.78, 0.45],
-      "eye_row": 6,
-      "pixels": [
-        "..................",
-        "......OOOOOO......",
-        "....OOOOOOOOOO....",
-        "OOOOOOOOOOOOOOOOOO",
-        "OO..OOOOOOOOOO..OO",
-        "....OOOOOOOOOO....",
-        "...OOEOOOOOOEOO...",
-        "...OOOOOOOOOOOO...",
-        "....OOOOOOOOOO....",
-        "....OOOOOOOOOO....",
-        ".....OOOOOOOO.....",
-        ".....OOOOOOOO....."
-      ]
-    },
-    "goomba": {
-      "color": [0.55, 0.35, 0.17],
-      "pixels": [
-        "..................",
-        ".....OOOOOOOO.....",
-        "...OOOOOOOOOOOO...",
-        "..OOOOOOOOOOOOOO..",
-        "..OO..OOOOOO..OO..",
-        "..OOO..OOOO..OOO..",
-        "..OOOOOOOOOOOOOO..",
-        "..OOOOOOOOOOOOOO..",
-        "...OOOOOOOOOOOO...",
-        "....OOOOOOOOOO....",
-        "..OOOO......OOOO..",
-        "..OOOO......OOOO.."
       ]
     },
     "mushroom": {
@@ -321,6 +290,160 @@
         "..BBBBBBBBBBBBBB..",
         "...BBB......BBB...",
         "...BBB......BBB..."
+      ]
+    },
+    "slime": {
+      "color": [0.30, 0.55, 0.95],
+      "palette": {
+        "B": [0.30, 0.55, 0.95],
+        "K": [0.05, 0.05, 0.05]
+      },
+      "pixels": [
+        "..................",
+        "........BB........",
+        "........BB........",
+        ".......BBBB.......",
+        "......BBBBBB......",
+        ".....BBBBBBBB.....",
+        "....BBBBBBBBBB....",
+        "...BBKBBBBBBKBB...",
+        ".BBBBBBBBBBBBBBBB.",
+        ".BBBBBBKKKKBBBBBB.",
+        "..BBBBBBBBBBBBBB..",
+        "...BBBBBBBBBBBB..."
+      ]
+    },
+    "penguin": {
+      "color": [0.10, 0.10, 0.10],
+      "palette": {
+        "K": [0.10, 0.10, 0.10],
+        "W": [0.98, 0.98, 0.98],
+        "O": [0.95, 0.55, 0.10]
+      },
+      "pixels": [
+        "..................",
+        "....KKKKKKKKKK....",
+        "..KKKKKKKKKKKKKK..",
+        "..KKKWWWWWWWWKKK..",
+        "..KKWKWWWWWWKWKK..",
+        "..KKWWWOOOOWWWKK..",
+        "..KKKWWWWWWWWKKK..",
+        "..KKWWWWWWWWWWKK..",
+        "..KKKWWWWWWWWKKK..",
+        "..KKKKWWWWWWKKKK..",
+        "....KWWWWWWWWK....",
+        "....OO......OO...."
+      ]
+    },
+    "jack_o_lantern": {
+      "color": [0.95, 0.45, 0.10],
+      "palette": {
+        "O": [0.95, 0.45, 0.10],
+        "Y": [1.00, 0.90, 0.30],
+        "G": [0.30, 0.60, 0.25]
+      },
+      "pixels": [
+        "..................",
+        "........GG........",
+        "......OOOOOO......",
+        "....OOOOOOOOOO....",
+        "..OOOOOOOOOOOOOO..",
+        ".OOOOOOOOOOOOOOOO.",
+        ".OOYYYOOOOOOYYYOO.",
+        ".OOOOOOOOOOOOOOOO.",
+        ".OOOYYYYYYYYYYOOO.",
+        ".OOOOOOOOOOOOOOOO.",
+        "..OOOOOOOOOOOOOO..",
+        "....OOOOOOOOOO...."
+      ]
+    },
+    "cat": {
+      "color": [0.55, 0.55, 0.55],
+      "palette": {
+        "G": [0.55, 0.55, 0.55],
+        "K": [0.05, 0.05, 0.05],
+        "P": [0.95, 0.65, 0.70]
+      },
+      "pixels": [
+        "..................",
+        "..GG..........GG..",
+        "..GGG........GGG..",
+        "..GGPP......PPGG..",
+        ".GGGGGGGGGGGGGGGG.",
+        ".GGGKGGGGGGGGKGGG.",
+        ".GGGGGGGGKKGGGGGG.",
+        ".GGGGGGGGGGGGGGGG.",
+        ".GGGGGKKKKKKGGGGG.",
+        "..GGGGGGGGGGGGGG..",
+        "...GGGGGGGGGGGG...",
+        "....GGGGGGGGGG...."
+      ]
+    },
+    "gem": {
+      "color": [0.35, 0.55, 0.85],
+      "palette": {
+        "T": [0.65, 0.85, 1.00],
+        "B": [0.30, 0.50, 0.85]
+      },
+      "pixels": [
+        "..................",
+        "........TT........",
+        ".......TTTT.......",
+        "......TTTTTT......",
+        ".....TTTTTTTT.....",
+        "....BBBBBBBBBB....",
+        "...BBBBBBBBBBBB...",
+        "....BBBBBBBBBB....",
+        ".....BBBBBBBB.....",
+        "......BBBBBB......",
+        ".......BBBB.......",
+        "........BB........"
+      ]
+    },
+    "ufo": {
+      "color": [0.70, 0.70, 0.75],
+      "palette": {
+        "S": [0.70, 0.70, 0.75],
+        "C": [0.50, 0.85, 0.95],
+        "Y": [1.00, 0.90, 0.30],
+        "K": [0.05, 0.05, 0.05]
+      },
+      "pixels": [
+        "..................",
+        "........CC........",
+        ".......CCCC.......",
+        "......CKCCKC......",
+        "...SSSSSSSSSSSS...",
+        "..SSSSSSSSSSSSSS..",
+        "...SSSSSSSSSSSS...",
+        ".......YYYY.......",
+        "......YYYYYY......",
+        ".....YYYYYYYY.....",
+        "....YYYYYYYYYY....",
+        "...YYYYYYYYYYYY..."
+      ]
+    },
+    "snowman": {
+      "color": [0.97, 0.97, 0.97],
+      "palette": {
+        "W": [0.97, 0.97, 0.97],
+        "K": [0.05, 0.05, 0.05],
+        "O": [0.95, 0.55, 0.10],
+        "S": [0.85, 0.15, 0.15]
+      },
+      "pixels": [
+        "..................",
+        "....KKKKKKKKKK....",
+        "....KKKKKKKKKK....",
+        "..KKKKKKKKKKKKKK..",
+        ".....WWWWWWWW.....",
+        "....WWWWWWWWWW....",
+        "....WKWWOOWWKW....",
+        "....WWWWWWWWWW....",
+        ".....SSSSSSSS.....",
+        "...WWWWWWWWWWWW...",
+        "..WWWWWWWWWWWWWW..",
+        "..WWWWWWWWWWWWWW.."
       ]
     }
   }
