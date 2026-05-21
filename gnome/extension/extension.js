@@ -263,22 +263,15 @@ class ClawdIndicator extends PanelMenu.Button {
 
     _openPrefs() {
         if (this.menu && this.menu.isOpen) this.menu.close();
-        // Try the Extension instance method first (GNOME 45+).
+        // GLib.spawn_command_line_async is the simplest fire-and-forget
+        // launcher in GJS — no flags, no Gio.Subprocess object lifecycle.
+        // Works on every GNOME version that ships `gnome-extensions`.
         try {
-            if (this._extension && typeof this._extension.openPreferences === 'function') {
-                this._extension.openPreferences();
-                return;
-            }
+            const ok = GLib.spawn_command_line_async(
+                'gnome-extensions prefs clawd@rowdy4e');
+            console.warn('[Clawd] spawn returned ' + ok);
         } catch (e) {
-            console.warn('[Clawd] openPreferences threw: ' + e);
-        }
-        // Fallback: spawn the CLI. Works on any GNOME version.
-        try {
-            Gio.Subprocess.new(
-                ['gnome-extensions', 'prefs', 'clawd@rowdy4e'],
-                Gio.SubprocessFlags.NONE);
-        } catch (e) {
-            console.warn('[Clawd] gnome-extensions prefs spawn failed: ' + e);
+            console.warn('[Clawd] prefs spawn threw: ' + (e && e.message ? e.message : e));
         }
     }
 
