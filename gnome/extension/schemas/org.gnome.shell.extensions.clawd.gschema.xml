@@ -83,5 +83,12 @@
       <summary>Place lockscreen Clawd at the bottom of the screen</summary>
       <description>When true (default), the lockscreen Clawd appears at the bottom of the screen. When false, it appears just below the top panel.</description>
     </key>
+
+    <key name="lockscreen-size-percent" type="i">
+      <range min="50" max="200"/>
+      <default>100</default>
+      <summary>Lock-screen Clawd size (percent)</summary>
+      <description>100 % = auto-fit to the monitor (~5 % of monitor width for the body). 50–200 % scales accordingly.</description>
+    </key>
   </schema>
 </schemalist>

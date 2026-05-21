@@ -12,6 +12,7 @@ const Cairo = imports.cairo;
 const APPLET_DIR = GLib.get_home_dir() + "/.local/share/cinnamon/applets/claude-usage@rowdy4e";
 const LOCKSCREEN_CONFIG_DIR = GLib.get_home_dir() + "/.config/clawd-lockscreen";
 const LOCKSCREEN_MESSAGES_FILE = LOCKSCREEN_CONFIG_DIR + "/messages";
+const LOCKSCREEN_SIZE_FILE = LOCKSCREEN_CONFIG_DIR + "/size-percent";
 
 // Default lock-screen messages — written to the messages file on first edit
 // so the user has something to start from. The widget falls back to its own
@@ -192,8 +193,11 @@ class ClaudeUsageApplet extends Applet.Applet {
         this.settings.bind("usageScriptPath", "usageScriptPath", this._refresh.bind(this));
         this.settings.bind("devMode", "devMode", this._rebuildMenu.bind(this));
         this._lastLockscreenVal = null; // unknown on init — first call won't restart
+        this._lastSizeVal = null;
         this.settings.bind("lockscreenEnabled", "lockscreenEnabled", this._onLockscreenToggle.bind(this));
+        this.settings.bind("lockscreenSizePercent", "lockscreenSizePercent", this._onLockscreenSize.bind(this));
         this._onLockscreenToggle(); // initial sync, no restart
+        this._onLockscreenSize();   // initial sync, no restart
         // Watch the messages file — when the user saves in their editor we
         // restart cinnamon-screensaver so edits take effect on next lock.
         this._setupMessagesFileMonitor();
@@ -1170,6 +1174,22 @@ class ClaudeUsageApplet extends Applet.Applet {
             GLib.file_set_contents(file, val);
         } catch (e) {
             global.log && global.log("Clawd lockscreen config write failed: " + e.toString());
+        }
+        if (!isInitial) this._maybeRestartScreensaver();
+    }
+
+    // Persist the lock-screen size percentage and restart the screensaver
+    // so the widget picks up the new size on next lock.
+    _onLockscreenSize() {
+        const val = String(this.lockscreenSizePercent || 100);
+        const isInitial = (this._lastSizeVal === null);
+        if (val === this._lastSizeVal) return;
+        this._lastSizeVal = val;
+        try {
+            GLib.mkdir_with_parents(LOCKSCREEN_CONFIG_DIR, parseInt("755", 8));
+            GLib.file_set_contents(LOCKSCREEN_SIZE_FILE, val);
+        } catch (e) {
+            global.log && global.log("Clawd lockscreen size write failed: " + e.toString());
         }
         if (!isInitial) this._maybeRestartScreensaver();
     }

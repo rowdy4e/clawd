@@ -2,8 +2,43 @@
 // Opened via Extension Manager "Settings" button or `gnome-extensions prefs clawd@rowdy4e`.
 
 import Adw from 'gi://Adw';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk';
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
+
+const LOCKSCREEN_CONFIG_DIR = GLib.get_home_dir() + '/.config/clawd-lockscreen';
+const LOCKSCREEN_MESSAGES_FILE = LOCKSCREEN_CONFIG_DIR + '/messages';
+
+// Defaults seeded into the messages file on first edit. Kept in sync with the
+// Cinnamon applet so the shared config file is interchangeable.
+const DEFAULT_LOCKSCREEN_MESSAGES = [
+    "You're absolutely right!",
+    "Let me think about this more carefully...",
+    "Actually, on reflection — yes, that.",
+    "Hmm, you raise a good point.",
+    "404: Motivation not found.",
+    "It works on my machine ¯\\_(ツ)_/¯",
+    "Just one more refactor, I promise.",
+    "TODO: rename this variable later.",
+    "git push --force or die trying.",
+    "Have you tried turning it off and on again?",
+    "Stack Overflow is your spirit animal.",
+    "Naming things is hard.",
+    "There are 2 hard problems: cache invalidation, naming things, off-by-one errors.",
+    "Today's bug is tomorrow's feature.",
+    "Code never lies. Comments sometimes do.",
+    "Make it work, make it right, make it fast.",
+    "Premature optimization is the root of all evil.",
+    "Why do programmers prefer dark mode? Bugs hate the light.",
+    "There's no place like 127.0.0.1",
+    "I'd tell you a UDP joke, but you might not get it.",
+    "A SQL query walks into a bar — sees two tables — asks: mind if I join you?",
+    "Take a deep breath. The compiler can wait.",
+    "Did you remember to commit?",
+    "Sip your coffee. The bug will still be there.",
+    "Step away for 5 minutes. Solutions appear in the shower.",
+];
 
 const ANIMATION_LABELS = [
     ['random',  'Random'],
@@ -70,6 +105,39 @@ function buildSwitchRow(title, subtitle, settings, key) {
     return row;
 }
 
+function buildButtonRow(title, subtitle, buttonLabel, onClick) {
+    const row = new Adw.ActionRow({title, subtitle: subtitle || ''});
+    const btn = new Gtk.Button({
+        label: buttonLabel,
+        valign: Gtk.Align.CENTER,
+    });
+    btn.connect('clicked', onClick);
+    row.add_suffix(btn);
+    row.activatable_widget = btn;
+    return row;
+}
+
+function _writeDefaultMessages() {
+    try {
+        GLib.mkdir_with_parents(LOCKSCREEN_CONFIG_DIR, parseInt('755', 8));
+        const text = DEFAULT_LOCKSCREEN_MESSAGES.join('\n') + '\n';
+        GLib.file_set_contents(LOCKSCREEN_MESSAGES_FILE, text);
+    } catch (e) {
+        console.warn('Clawd: reset messages failed: ' + e);
+    }
+}
+
+function _openMessagesEditor() {
+    try {
+        if (!GLib.file_test(LOCKSCREEN_MESSAGES_FILE, GLib.FileTest.EXISTS)) {
+            _writeDefaultMessages();
+        }
+        Gio.Subprocess.new(['xdg-open', LOCKSCREEN_MESSAGES_FILE], Gio.SubprocessFlags.NONE);
+    } catch (e) {
+        console.warn('Clawd: open messages editor failed: ' + e);
+    }
+}
+
 export default class ClawdPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const settings = this.getSettings('org.gnome.shell.extensions.clawd');
@@ -111,6 +179,23 @@ export default class ClawdPreferences extends ExtensionPreferences {
             'Show Clawd on lock screen',
             'Animated mascot with a rotating speech bubble and a rare grow easter egg',
             settings, 'lockscreen-enabled'));
+        lock.add(buildSwitchRow(
+            'Position at bottom',
+            'Off = anchor below the top panel instead',
+            settings, 'lockscreen-position-bottom'));
+        lock.add(buildSpinRow(
+            'Clawd size', 'Percentage — 100 % = auto-fit to monitor (~5 % of width)',
+            settings, 'lockscreen-size-percent', 50, 200, 10));
+        lock.add(buildButtonRow(
+            'Edit lock-screen messages…',
+            'Speech bubbles Clawd shows on the lock screen (one per line).',
+            'Open',
+            () => _openMessagesEditor()));
+        lock.add(buildButtonRow(
+            'Reset to default messages',
+            'Overwrite the messages file with the bundled defaults.',
+            'Reset',
+            () => _writeDefaultMessages()));
         page.add(lock);
 
         // ─── Advanced ───

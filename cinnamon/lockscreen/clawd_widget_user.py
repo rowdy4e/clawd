@@ -30,6 +30,7 @@ from anim_runner import AnimationRunner
 
 CONFIG_FILE = os.path.expanduser("~/.config/clawd-lockscreen/enabled")
 MESSAGES_FILE = os.path.expanduser("~/.config/clawd-lockscreen/messages")
+SIZE_FILE = os.path.expanduser("~/.config/clawd-lockscreen/size-percent")
 
 # Target: Clawd's body width ≈ TARGET_WIDTH_RATIO of monitor width.
 TARGET_WIDTH_RATIO = 0.10
@@ -41,6 +42,16 @@ def _is_lockscreen_enabled():
             return f.read().strip() != "0"
     except (IOError, OSError):
         return True  # default enabled
+
+
+def _load_size_percent():
+    """Returns the user-set lockscreen size percentage (50..200) or 100."""
+    try:
+        with open(SIZE_FILE) as f:
+            v = int(f.read().strip())
+            return max(50, min(200, v))
+    except (IOError, OSError, ValueError):
+        return 100
 
 
 def _load_user_messages():
@@ -159,8 +170,10 @@ def _detect_pixel_size(initial_monitor):
             return (10, 20)
         geom = monitor.get_geometry()
         screen_w = geom.width or 1920
-        # bitmap_w = COLS * x_unit ≈ TARGET_WIDTH_RATIO * screen_w
-        x_unit = max(4, int(round(TARGET_WIDTH_RATIO * screen_w / COLS)))
+        # bitmap_w = COLS * x_unit ≈ TARGET_WIDTH_RATIO * screen_w, with the
+        # user's size-percent setting layered on top.
+        scale = _load_size_percent() / 100.0
+        x_unit = max(4, int(round(TARGET_WIDTH_RATIO * screen_w * scale / COLS)))
         # With ROWS=12, square cells keep the overall icon at the same
         # physical size as the original 6-row design (where y_unit = x_unit*2).
         y_unit = x_unit

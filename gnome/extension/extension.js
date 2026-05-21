@@ -729,9 +729,13 @@ export default class ClawdExtension extends Extension {
 
         this._buildLockOverlay();
 
-        // Rebuild the lock overlay when the user switches top/bottom.
+        // Rebuild the lock overlay when the user switches top/bottom or
+        // tweaks the size percent.
         this._posSettingHandler = this._settings.connect(
             'changed::lockscreen-position-bottom',
+            () => this._rebuildLockChrome());
+        this._sizeSettingHandler = this._settings.connect(
+            'changed::lockscreen-size-percent',
             () => this._rebuildLockChrome());
 
         if (Main.screenShield) {
@@ -752,12 +756,16 @@ export default class ClawdExtension extends Extension {
     _buildLockOverlay() {
         // Resolution-adaptive: target ~5% of monitor width for Clawd's body,
         // floored to ≥4 px per cell so HiDPI 4K stays readable and a tiny VM
-        // window doesn't try to render at zero pixels. Square cells (yUnit =
-        // xUnit) so 6-row clawd renders at 1:2 cell aspect via drawClawd's
-        // per-form cellH math (its cellH = 2*LOCK_XUNIT).
+        // window doesn't try to render at zero pixels. User can override with
+        // the `lockscreen-size-percent` setting (50..200, default 100).
+        // Square cells (yUnit = xUnit) so 6-row clawd renders at 1:2 cell
+        // aspect via drawClawd's per-form cellH math.
         const monitor = Main.layoutManager.primaryMonitor;
         const monitorW = monitor ? monitor.width : 1920;
-        const LOCK_XUNIT = Math.max(4, Math.floor(monitorW * 0.05 / COLS));
+        const sizePercent = this._settings
+            ? Math.max(50, Math.min(200, this._settings.get_int('lockscreen-size-percent')))
+            : 100;
+        const LOCK_XUNIT = Math.max(4, Math.floor(monitorW * 0.05 * sizePercent / 100 / COLS));
         const LOCK_YUNIT = LOCK_XUNIT;
         const padX = 4 * LOCK_XUNIT;
         const cw = LOCK_XUNIT * COLS + 2 * padX;
@@ -897,7 +905,23 @@ export default class ClawdExtension extends Extension {
 
     _showRandomMessage() {
         if (!this._lockBin?.visible || !this._lockBubble) return;
-        const text = LOCK_MESSAGES[Math.floor(Math.random() * LOCK_MESSAGES.length)];
+        // Prefer user-edited list from ~/.config/clawd-lockscreen/messages
+        // (same file the Cinnamon applet writes via its settings button).
+        // Falls back to bundled LOCK_MESSAGES if missing/empty.
+        let pool = LOCK_MESSAGES;
+        try {
+            const path = GLib.get_home_dir() + '/.config/clawd-lockscreen/messages';
+            if (GLib.file_test(path, GLib.FileTest.EXISTS)) {
+                const [ok, contents] = GLib.file_get_contents(path);
+                if (ok) {
+                    const text = (typeof contents === 'string')
+                        ? contents : new TextDecoder().decode(contents);
+                    const lines = text.split('\n').map(s => s.trim()).filter(s => s.length);
+                    if (lines.length) pool = lines;
+                }
+            }
+        } catch (e) { /* fall back to LOCK_MESSAGES */ }
+        const text = pool[Math.floor(Math.random() * pool.length)];
         this._lockBubble.set_text(text);
         this._lockBubble.visible = true;
         this._startMouthTalk();
@@ -975,6 +999,10 @@ export default class ClawdExtension extends Extension {
         if (this._posSettingHandler && this._settings) {
             try { this._settings.disconnect(this._posSettingHandler); } catch (e) {}
             this._posSettingHandler = null;
+        }
+        if (this._sizeSettingHandler && this._settings) {
+            try { this._settings.disconnect(this._sizeSettingHandler); } catch (e) {}
+            this._sizeSettingHandler = null;
         }
         // Stop the tick BEFORE destroying the lock actors so it can't land
         // on a disposed widget mid-destroy and segfault gnome-shell.
