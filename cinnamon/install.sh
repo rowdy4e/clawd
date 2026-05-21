@@ -13,6 +13,7 @@ install_applet() {
     local dest="$HOME/.local/share/cinnamon/applets/$APPLET_UUID"
     mkdir -p "$dest"
     cp -v "$HERE/applet"/* "$dest/"
+    cp -v "$HERE/shared/"*.json "$dest/"
     chmod +x "$dest"/*.sh 2>/dev/null || true
     echo
     echo "Panel applet installed to $dest"
@@ -31,6 +32,8 @@ install_lockscreen() {
     done
     cp -v "$HERE/lockscreen/usercustomize.py" "$pyuser/"
     cp -v "$HERE/lockscreen/clawd_widget_user.py" "$pyuser/"
+    cp -v "$HERE/lockscreen/anim_runner.py" "$pyuser/"
+    cp -v "$HERE/shared/"*.json "$pyuser/"
     echo
     echo "Lock-screen widget installed to $pyuser"
     echo "Restart the screensaver to pick it up:"
@@ -40,7 +43,8 @@ install_lockscreen() {
 uninstall_lockscreen() {
     local pyuser
     pyuser=$(python3 -c 'import site; print(site.USER_SITE)')
-    rm -fv "$pyuser/clawd_widget_user.py" "$pyuser/usercustomize.py"
+    rm -fv "$pyuser/clawd_widget_user.py" "$pyuser/usercustomize.py" \
+           "$pyuser/anim_runner.py" "$pyuser/forms.json" "$pyuser/animations.json"
     echo
     echo "Lock-screen widget removed."
     echo "Restart the screensaver to clear it from memory:"

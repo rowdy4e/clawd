@@ -11,136 +11,63 @@ const Cairo = imports.cairo;
 
 const APPLET_DIR = GLib.get_home_dir() + "/.local/share/cinnamon/applets/claude-usage@rowdy4e";
 
-// ─── Pixel-art forms — 18 cols × 6 rows each ───
-// 'O' body, 'E' eye gap (drawn only when blinking), 'F' foot (walk-animated),
-// '.' transparent. Each form has its own color.
-const FORMS = {
-    clawd: {
-        color: [0.85, 0.47, 0.34],
-        pixels: [
-            "...OOOOOOOOOOOO...",
-            "...OOEOOOOOOEOO...",
-            ".OOOOOOOOOOOOOOOO.",
-            "...OOOOOOOOOOOO...",
-            "....F.F....F.F....",
-            ".................."
-        ]
-    },
-    heart: {
-        color: [0.93, 0.27, 0.49],
-        pixels: [
-            "..................",
-            "....OOO....OOO....",
-            "...OOOOOOOOOOOO...",
-            "....OOOOOOOOOO....",
-            ".....OOOOOOOO.....",
-            "......OOOOOO......"
-        ]
-    },
-    ghost: {
-        color: [0.88, 0.90, 0.96],
-        pixels: [
-            ".....OOOOOOOO.....",
-            "....OOOOOOOOOO....",
-            "...OOEOOOOOOEOO...",
-            "...OOOOOOOOOOOO...",
-            "...OOOOOOOOOOOO...",
-            "...O.OO.OO.OO.O..."
-        ]
-    },
-    octopus: {
-        color: [0.62, 0.40, 0.85],
-        pixels: [
-            "....OOOOOOOO......",
-            "...OOOOOOOOOO.....",
-            "..OOEOOOOOOEOO....",
-            "...OOOOOOOOOO.....",
-            "..O.O.O.O.O.O.O...",
-            "...O.O.O.O.O.O...."
-        ]
-    },
-    sparkle: {
-        color: [0.98, 0.78, 0.18],
-        pixels: [
-            "........OO........",
-            ".....OOOOOOOO.....",
-            ".OOOOOOOOOOOOOOOO.",
-            ".OOOOOOOOOOOOOOOO.",
-            ".....OOOOOOOO.....",
-            "........OO........"
-        ]
-    },
-    blob: {
-        color: [0.35, 0.82, 0.45],
-        pixels: [
-            "..................",
-            "....OOOOOOOOOO....",
-            "..OOOOOOOOOOOOOO..",
-            "..OOOOOOOOOOOOOO..",
-            "...OOOOOOOOOOOO...",
-            ".................."
-        ]
-    },
-    pacman: {
-        color: [0.98, 0.85, 0.10],
-        pixels: [
-            ".....OOOOOOOOO....",
-            "....OOOOOOOOOOO...",
-            "...OOOOOOOO.......",
-            "...OOOOOO.........",
-            "...OOOOOOOO.......",
-            "....OOOOOOOOOOO..."
-        ]
-    },
-    invader: {
-        color: [0.30, 0.90, 0.40],
-        pixels: [
-            "....O......O......",
-            ".....OOOOOOOO.....",
-            "....OOOOOOOOOO....",
-            "...OO.OOOO.OO.....",
-            "...OOOOOOOOOO.....",
-            "....O.OOOO.O......"
-        ]
-    },
-    crown: {
-        color: [0.96, 0.80, 0.20],
-        pixels: [
-            "..O..O..O..O..O...",
-            "..O..O..O..O..O...",
-            "..OOOOOOOOOOOOOO..",
-            "..OOOOOOOOOOOOOO..",
-            "..OOOOOOOOOOOOOO..",
-            ".................."
-        ]
-    },
-    skull: {
-        color: [0.92, 0.92, 0.95],
-        pixels: [
-            ".....OOOOOOOO.....",
-            "....OOOOOOOOOO....",
-            "....OO.OOOO.OO....",
-            ".....OOOOOOOO.....",
-            "......OOOOOO......",
-            "......O.O.O.O....."
-        ]
-    }
-};
+// ─── Pixel-art forms loaded from cinnamon/shared/forms.json ───
+// Single source of truth shared with the Python lock-screen widget.
+// Glyphs: 'O' body, 'E' eye gap (drawn only when blinking), 'F' foot
+// (walk-animated), '.' transparent.
+function _loadJSON(path) {
+    const [ok, raw] = GLib.file_get_contents(path);
+    if (!ok) throw new Error("can't read " + path);
+    const text = (typeof raw === 'string') ? raw : imports.byteArray.toString(raw);
+    return JSON.parse(text);
+}
+const _SHARED_FORMS = _loadJSON(APPLET_DIR + "/forms.json");
+const _SHARED_ANIMS = _loadJSON(APPLET_DIR + "/animations.json");
+const COLS = _SHARED_FORMS.grid.cols;
+const ROWS = _SHARED_FORMS.grid.rows;
+const FORMS = _SHARED_FORMS.forms;
 const FORM_KEYS = Object.keys(FORMS);
-const MORPH_TARGETS = FORM_KEYS.filter(k => k !== "clawd");
-const COLS = 18;
-const ROWS = 6;
+// Per-form `contexts` (optional) restricts which renderer can use this form.
+// e.g. {"contexts": ["lockscreen"]} = lockscreen-only HD form, hidden on panel.
+// Default: form is available in both contexts.
+function _formAllowsContext(form, ctx) {
+    if (!form.contexts) return true;
+    return form.contexts.indexOf(ctx) >= 0;
+}
+const MORPH_TARGETS = FORM_KEYS.filter(k =>
+    k !== "clawd" && _formAllowsContext(FORMS[k], "panel"));
 
-// Rainbow palette — Tweened through during the rainbow animation.
-const RAINBOW = [
-    [0.95, 0.20, 0.20], // red
-    [0.95, 0.55, 0.10], // orange
-    [0.95, 0.85, 0.10], // yellow
-    [0.30, 0.85, 0.30], // green
-    [0.20, 0.55, 0.95], // blue
-    [0.55, 0.30, 0.85], // indigo
-    [0.85, 0.30, 0.85]  // violet
-];
+// Pull in the shared animation interpreter (sibling file in the applet dir).
+const AnimRunnerModule = imports.ui.appletManager.applets["claude-usage@rowdy4e"].anim_runner;
+const AnimationRunner = AnimRunnerModule.AnimationRunner;
+
+// Maps DSL snake_case keys to the camelCase keys used by our state object.
+const DSL_TO_STATE = {
+    body_x: "bodyX", body_y: "bodyY",
+    scale_x: "scaleX", scale_y: "scaleY",
+    tilt: "tilt",
+    eye_open: "eyeOpen", eye_state: "eyeState",
+    mouth_visible: "mouthVisible", mouth_shape: "mouthShape",
+    walk_phase: "walkPhase", walking: "walking",
+    form_a: "formA", form_b: "formB", morph_t: "morphT",
+    excited: "excited", eye_shift: "eyeShift",
+    rainbow_active: "rainbowActive", rainbow_phase: "rainbowPhase"
+};
+
+// DSL easing names -> Tweener transition names.
+const DSL_TO_TWEENER = {
+    "linear":           "linear",
+    "ease_out_quad":    "easeOutQuad",
+    "ease_in_quad":     "easeInQuad",
+    "ease_in_out_quad": "easeInOutQuad",
+    "ease_in_out_cubic":"easeInOutCubic",
+    "ease_out_bounce":  "easeOutBounce",
+    "ease_out_back":    "easeOutBack"
+};
+
+// Rainbow palette — driven by the rainbow animation; lives in shared/forms.json
+// so the lock-screen widget can reuse the exact same colors.
+const RAINBOW = _SHARED_FORMS.palettes.rainbow;
 
 function isFilled(pixels, row, col) {
     let ch = pixels[row][col];
@@ -148,20 +75,45 @@ function isFilled(pixels, row, col) {
 }
 
 // Pre-compile each form's filled cells into split body/foot arrays so the draw
-// path doesn't pay for string indexing on every frame.
+// path doesn't pay for string indexing on every frame. Each form has its own
+// row count — clawd is chunky 6-row, newer forms use 12-row for finer detail.
+// Positions (eye, mouth, pivot) are derived from the row count. Also stash
+// the content bounding box so the renderer can vertically center asymmetric
+// forms (e.g. clawd's empty bottom row).
 (function _precomputeFormCells() {
     for (let key of FORM_KEYS) {
         let form = FORMS[key];
+        let rows = form.rows || form.pixels.length;
+        form.rows = rows;
+        form.eye_row   = (form.eye_row   != null) ? form.eye_row   : Math.floor(rows / 4);
+        form.mouth_row = (form.mouth_row != null) ? form.mouth_row : Math.round(rows * 0.58);
+        form.pivot_row = (form.pivot_row != null) ? form.pivot_row : rows - 2;
         form.bodyCells = [];
         form.footCells = [];
-        for (let row = 0; row < ROWS; row++) {
+        // Multi-color support: group body cells by glyph so each can be drawn
+        // with its own palette color in one fill() pass.
+        form.bodyByGlyph = {};
+        form.hasPalette = !!form.palette;
+        let contentTop = rows, contentBottom = 0;
+        for (let row = 0; row < rows; row++) {
             for (let col = 0; col < COLS; col++) {
                 let ch = form.pixels[row][col];
                 if (ch === '.') continue;
-                let target = (row < 4) ? form.bodyCells : form.footCells;
-                target.push([row, col, ch]);
+                // 'F' cells are feet (walk-animated, no breath); everything
+                // else breathes with the body.
+                if (ch === 'F') {
+                    form.footCells.push([row, col, ch]);
+                } else {
+                    form.bodyCells.push([row, col, ch]);
+                    if (!form.bodyByGlyph[ch]) form.bodyByGlyph[ch] = [];
+                    form.bodyByGlyph[ch].push([row, col, ch]);
+                }
+                if (row < contentTop) contentTop = row;
+                if (row + 1 > contentBottom) contentBottom = row + 1;
             }
         }
+        form.content_top = (contentBottom > contentTop) ? contentTop : 0;
+        form.content_bottom = (contentBottom > contentTop) ? contentBottom : rows;
     }
 })();
 
@@ -210,13 +162,16 @@ class ClaudeUsageApplet extends Applet.Applet {
         this.settings.bind("lockscreenEnabled", "lockscreenEnabled", this._onLockscreenToggle.bind(this));
         this._onLockscreenToggle(); // initial sync, no restart
 
-        // Drawing canvas sized to panel. Each terminal cell is ~2:1 (tall:wide),
-        // so to match the CLI proportions we draw "tall pixels": yUnit = 2 × xUnit.
+        // Drawing canvas sized to panel. We want the overall icon to be the
+        // same physical size regardless of ROWS — so xUnit is computed against
+        // a "logical 6-row" yUnit (then xUnit:yUnit_logical = 1:2 like the CLI
+        // proportions used to be). The actual per-cell yUnit scales with ROWS.
+        let yUnitLogical6 = Math.max(2, Math.floor((panelHeight - 4) / 6));
         let yUnit = Math.max(2, Math.floor((panelHeight - 4) / ROWS));
-        let xUnit = Math.max(1, Math.floor(yUnit / 2));
-        // Horizontal headroom — accommodates squish (~1.15×) and wider morph forms.
-        // 4 cols of padding each side = enough breathing room.
-        let padX = 4 * xUnit;
+        let xUnit = Math.max(2, Math.floor(yUnitLogical6 / 2));
+        // Horizontal headroom — accommodates squish (~1.15×) and tilt. Tight at
+        // 2 cols, so extreme animations (max squish, big tilt) may clip slightly.
+        let padX = 2 * xUnit;
         let padY = 0;
         let canvasH = yUnit * ROWS + 2 * padY;
         let canvasW = xUnit * COLS + 2 * padX;
@@ -257,6 +212,25 @@ class ClaudeUsageApplet extends Applet.Applet {
             eyeShift: 0,       // -1..1, horizontal eye position shift (px in xUnit)
             breathT: 0         // breathing phase, 0..1 — owned ONLY by _startBreathing
         };
+
+        // Animation interpreter — reads shared/animations.json, drives Tweener.
+        // intensityY=0.6 keeps panel bounces snug (lockscreen uses 1.0).
+        this._runner = new AnimationRunner({
+            state: this._state,
+            addTween: (key, target, ms, ease, onComplete) => {
+                let opts = {time: ms / 1000.0,
+                            transition: DSL_TO_TWEENER[ease] || "linear",
+                            onUpdate: () => this._repaint()};
+                opts[key] = target;
+                if (onComplete) opts.onComplete = onComplete;
+                Tweener.addTween(this._state, opts);
+            },
+            timeoutAdd: (ms, fn) => Mainloop.timeout_add(ms, fn),
+            randomLists: {MORPH_TARGETS: MORPH_TARGETS},
+            keyMap: DSL_TO_STATE,
+            animationsJson: _SHARED_ANIMS,
+            intensityY: 0.6
+        });
 
         this.menuManager = new PopupMenu.PopupMenuManager(this);
         this.menu = new Applet.AppletPopupMenu(this, orientation);
@@ -311,6 +285,8 @@ class ClaudeUsageApplet extends Applet.Applet {
         try { cr.setAntialias(Cairo.Antialias.NONE); } catch (e) {}
 
         // Use the unit sizes computed at construction so transforms have headroom.
+        // yUnit is the GLOBAL row height (for ROWS=12). Per-form cellH is computed
+        // below — a 6-row form will use 2× cellH so it stays chunky.
         let yUnit = this._yUnit || 4;
         let xUnit = this._xUnit || 2;
         let drawW = xUnit * COLS;
@@ -329,28 +305,53 @@ class ClaudeUsageApplet extends Applet.Applet {
         let formB = FORMS[s.formB] || formA;
         let t = Math.max(0, Math.min(1, s.morphT));
         let morphing = (s.formA !== s.formB) && (t > 0.001 && t < 0.999);
+        let sameGrid = (formA.rows === formB.rows);
 
-        // Body color: interpolate between formA.color and formB.color according to morph progress.
+        // Per-form geometry — picks the dominant form's row count so 6-row
+        // clawd renders chunky while 12-row forms render fine-grained.
+        let dForm = (t >= 0.5) ? formB : formA;
+        let formRows = dForm.rows;
+        let cellH = Math.floor(drawH / formRows);
+        let eyeRow = dForm.eye_row;
+        let mouthRow = dForm.mouth_row;
+        let pivotRow = dForm.pivot_row;
+        // Shift originY so the form's filled bounding box is vertically
+        // centered. Equal top/bottom gaps regardless of where empty rows live
+        // in the form's data.
+        let topEmpty = dForm.content_top;
+        let bottomEmpty = formRows - dForm.content_bottom;
+        originY += Math.round((bottomEmpty - topEmpty) * cellH / 2);
+
+        // Body color: interpolate between formA.color and formB.color. Used as
+        // the default (when no palette entry for a glyph) and for derived bits
+        // like eyelids/mouth.
         let baseColor = [
             formA.color[0] * (1 - t) + formB.color[0] * t,
             formA.color[1] * (1 - t) + formB.color[1] * t,
             formA.color[2] * (1 - t) + formB.color[2] * t
         ];
-        // Rainbow override
-        if (s.rainbowActive > 0.01) {
-            let rb = rainbowColor(s.rainbowPhase);
-            let k = s.rainbowActive;
-            baseColor = [
-                baseColor[0] * (1 - k) + rb[0] * k,
-                baseColor[1] * (1 - k) + rb[1] * k,
-                baseColor[2] * (1 - k) + rb[2] * k
-            ];
-        }
-        // Excited adds a flash of red
-        let mix = Math.max(0, Math.min(1, s.excited));
-        let r = baseColor[0] * (1 - mix) + 0.95 * mix;
-        let g = baseColor[1] * (1 - mix) + 0.35 * mix;
-        let b = baseColor[2] * (1 - mix) + 0.20 * mix;
+        // Apply rainbow + excited tints to a [r,g,b] in place.
+        let applyTints = (rgb) => {
+            let r = rgb[0], g = rgb[1], b = rgb[2];
+            if (s.rainbowActive > 0.01) {
+                let rb = rainbowColor(s.rainbowPhase);
+                let k = s.rainbowActive;
+                r = r * (1 - k) + rb[0] * k;
+                g = g * (1 - k) + rb[1] * k;
+                b = b * (1 - k) + rb[2] * k;
+            }
+            let mix = Math.max(0, Math.min(1, s.excited));
+            return [r * (1 - mix) + 0.95 * mix,
+                    g * (1 - mix) + 0.35 * mix,
+                    b * (1 - mix) + 0.20 * mix];
+        };
+        // Resolve color for a glyph in a form (palette > form.color).
+        let glyphColor = (form, ch) => {
+            if (form.palette && form.palette[ch]) return form.palette[ch];
+            return form.color;
+        };
+        let tintedBase = applyTints(baseColor);
+        let r = tintedBase[0], g = tintedBase[1], b = tintedBase[2];
 
         // Walk pairs
         let pairA = { 4: true, 13: true };
@@ -384,18 +385,18 @@ class ClaudeUsageApplet extends Applet.Applet {
                     || (isLeft && leftEyeClosed)
                     || (isRight && rightEyeClosed);
                 if (closed) {
-                    cr.rectangle(originX + col * xUnit, originY + row * yUnit, xUnit, yUnit);
+                    cr.rectangle(originX + col * xUnit, originY + row * cellH, xUnit, cellH);
                 }
                 return;
             }
             let yOffset = 0;
             if (ch === 'F' && s.walking > 0 && !morphing) {
-                let lift = yUnit;
+                let lift = cellH;
                 if (s.walkPhase < 0.5 && pairA[col]) yOffset = -lift;
                 if (s.walkPhase >= 0.5 && pairB[col]) yOffset = -lift;
                 yOffset = Math.round(yOffset * s.walking);
             }
-            cr.rectangle(originX + col * xUnit, originY + row * yUnit + yOffset, xUnit, yUnit);
+            cr.rectangle(originX + col * xUnit, originY + row * cellH + yOffset, xUnit, cellH);
         };
 
         // Stash a closure to draw eyelids after the body. Called inside the breath
@@ -413,27 +414,27 @@ class ClaudeUsageApplet extends Applet.Applet {
             // Width slightly wider than the gap (3 pixels = cols around the eye).
             let alpha = 1 - openness;
             if (alpha < 0.05) return;
-            let lidH = Math.max(2, Math.floor(yUnit * 0.35));
-            let lidYOffset = Math.floor((yUnit - lidH) / 2);
+            let lidH = Math.max(2, Math.floor(cellH * 0.35));
+            let lidYOffset = Math.floor((cellH - lidH) / 2);
             let lidWidth = 3 * xUnit;
             // Dark color derived from body color but much darker
             cr.setSourceRGBA(r * 0.25, g * 0.18, b * 0.15, alpha);
             if (leftEyeClosed) {
-                cr.rectangle(originX + 4 * xUnit, originY + 1 * yUnit + lidYOffset, lidWidth, lidH);
+                cr.rectangle(originX + 4 * xUnit, originY + eyeRow * cellH + lidYOffset, lidWidth, lidH);
             }
             if (rightEyeClosed) {
-                cr.rectangle(originX + 11 * xUnit, originY + 1 * yUnit + lidYOffset, lidWidth, lidH);
+                cr.rectangle(originX + 11 * xUnit, originY + eyeRow * cellH + lidYOffset, lidWidth, lidH);
             }
             cr.fill();
         };
         // Make it accessible from the body draw block below
         this._lastDrawEyelids = drawEyelids;
 
-        // Breath transform — applies only to body rows (0..3). Pivot at the
-        // bottom of body so feet stay anchored ("ground" them).
+        // Breath transform — applies to body cells (non-F). Pivot at the foot
+        // row so feet stay anchored ("ground" them). Pivot row is per-form.
         let breathScale = 1 - s.breathT * 0.05;
         let breathBob = s.breathT * 0.5;
-        let pivotY = originY + 4 * yUnit;
+        let pivotY = originY + pivotRow * cellH;
         let applyBreath = () => {
             cr.translate(0, breathBob);
             cr.translate(0, pivotY);
@@ -450,50 +451,55 @@ class ClaudeUsageApplet extends Applet.Applet {
                 let row = cells[i][0];
                 if (row < rowStart || row >= rowEnd) continue;
                 let col = cells[i][1];
-                cr.rectangle(originX + col * xUnit, originY + row * yUnit, xUnit, yUnit);
+                cr.rectangle(originX + col * xUnit, originY + row * cellH, xUnit, cellH);
             }
         };
 
         if (!morphing) {
             let form = (t >= 0.5) ? formB : formA;
 
-            // BODY (rows 0..3) — with breath transform
+            // BODY — with breath transform. Iterate glyph groups so each can
+            // be drawn with its own palette color (or fallback to body color).
             cr.save();
             applyBreath();
-            cr.setSourceRGB(r, g, b);
-            drawCells(form.bodyCells);
-            cr.fill();
+            for (let ch in form.bodyByGlyph) {
+                let c = applyTints(glyphColor(form, ch));
+                cr.setSourceRGB(c[0], c[1], c[2]);
+                drawCells(form.bodyByGlyph[ch]);
+                cr.fill();
+            }
             // Eyelid line over closed eyes
             drawEyelids();
             // Mouth lives on the body
             if (s.mouthVisible > 0.05) {
-                let mouthRow = 3;
                 let mouthCols, mouthH;
                 if (s.mouthShape === 1) {
                     mouthCols = [6, 7, 8, 9, 10, 11];
-                    mouthH = Math.max(2, Math.floor(yUnit * 0.7));
+                    mouthH = Math.max(2, Math.floor(cellH * 0.7));
                 } else {
                     mouthCols = [7, 8, 9, 10];
-                    mouthH = Math.max(2, Math.floor(yUnit * 0.45));
+                    mouthH = Math.max(2, Math.floor(cellH * 0.45));
                 }
                 let mr = r * 0.45, mg = g * 0.30, mb = b * 0.20;
                 cr.setSourceRGBA(mr, mg, mb, s.mouthVisible);
-                let yTopOffset = Math.floor((yUnit - mouthH) / 2);
+                let yTopOffset = Math.floor((cellH - mouthH) / 2);
                 for (let mc of mouthCols) {
-                    cr.rectangle(originX + mc * xUnit, originY + mouthRow * yUnit + yTopOffset, xUnit, mouthH);
+                    cr.rectangle(originX + mc * xUnit, originY + mouthRow * cellH + yTopOffset, xUnit, mouthH);
                 }
                 cr.fill();
             }
             cr.restore();
 
-            // FEET (rows 4..end) — no breath
-            cr.setSourceRGB(r, g, b);
+            // FEET (rows 4..end) — no breath. Single glyph (F), but resolve
+            // via palette for completeness.
+            let fc = applyTints(glyphColor(form, 'F'));
+            cr.setSourceRGB(fc[0], fc[1], fc[2]);
             drawCells(form.footCells);
             cr.fill();
-        } else {
-            // Crossfade. Split each cell list by row range too.
+        } else if (sameGrid && !formA.hasPalette && !formB.hasPalette) {
+            // Same-grid morph: smart cell matching for a smooth crossfade.
             let bothCells = [], onlyACells = [], onlyBCells = [];
-            for (let row = 0; row < ROWS; row++) {
+            for (let row = 0; row < formRows; row++) {
                 for (let col = 0; col < COLS; col++) {
                     let inA = isFilled(formA.pixels, row, col);
                     let inB = isFilled(formB.pixels, row, col);
@@ -502,33 +508,48 @@ class ClaudeUsageApplet extends Applet.Applet {
                     else if (inB) onlyBCells.push([row, col]);
                 }
             }
-
-            // BODY rows (0..3) — with breath
             cr.save();
             applyBreath();
             cr.setSourceRGBA(r, g, b, 1);
-            drawCellsFiltered(bothCells, 0, 4); cr.fill();
+            drawCellsFiltered(bothCells, 0, formRows); cr.fill();
             if (onlyACells.length) {
                 cr.setSourceRGBA(r, g, b, 1 - t);
-                drawCellsFiltered(onlyACells, 0, 4); cr.fill();
+                drawCellsFiltered(onlyACells, 0, formRows); cr.fill();
             }
             if (onlyBCells.length) {
                 cr.setSourceRGBA(r, g, b, t);
-                drawCellsFiltered(onlyBCells, 0, 4); cr.fill();
+                drawCellsFiltered(onlyBCells, 0, formRows); cr.fill();
             }
             cr.restore();
-
-            // FEET rows (4..end) — no breath
-            cr.setSourceRGBA(r, g, b, 1);
-            drawCellsFiltered(bothCells, 4, ROWS); cr.fill();
-            if (onlyACells.length) {
-                cr.setSourceRGBA(r, g, b, 1 - t);
-                drawCellsFiltered(onlyACells, 4, ROWS); cr.fill();
-            }
-            if (onlyBCells.length) {
-                cr.setSourceRGBA(r, g, b, t);
-                drawCellsFiltered(onlyBCells, 4, ROWS); cr.fill();
-            }
+        } else {
+            // Cross-grid OR multi-color morph: alpha-blend each form drawn
+            // with its own palette. (Per-cell glyph matching gets nonsensical
+            // when forms use different color schemes.)
+            let drawWholeForm = (form, alpha) => {
+                let fH = Math.floor(drawH / form.rows);
+                let cellsByGlyph = {};
+                for (let row = 0; row < form.rows; row++) {
+                    for (let col = 0; col < COLS; col++) {
+                        let ch = form.pixels[row][col];
+                        if (ch === '.' || ch === 'F') continue;
+                        if (!cellsByGlyph[ch]) cellsByGlyph[ch] = [];
+                        cellsByGlyph[ch].push([row, col]);
+                    }
+                }
+                for (let ch in cellsByGlyph) {
+                    let c = applyTints(glyphColor(form, ch));
+                    cr.setSourceRGBA(c[0], c[1], c[2], alpha);
+                    for (let cell of cellsByGlyph[ch]) {
+                        cr.rectangle(originX + cell[1] * xUnit, originY + cell[0] * fH, xUnit, fH);
+                    }
+                    cr.fill();
+                }
+            };
+            cr.save();
+            applyBreath();
+            drawWholeForm(formA, 1 - t);
+            drawWholeForm(formB, t);
+            cr.restore();
         }
 
         cr.restore();
@@ -622,13 +643,21 @@ class ClaudeUsageApplet extends Applet.Applet {
     }
 
     _pickAnimation() {
-        const random = ["bounce", "wiggle", "squish", "shake", "tilt",
-                        "walk", "excited", "morph", "glitch",
-                        "wink", "yawn", "lookAround"];
-        const all = random.concat(["spin", "rainbow"]);
+        const all = this._runner.listAnimations();
+        const tags = _SHARED_ANIMS.tags || {};
+        const hasTag = (n, tag) => (tags[n] || []).indexOf(tag) >= 0;
+        const eggs = all.filter(n => hasTag(n, "easter_egg"));
+        const pool = all.filter(n => !hasTag(n, "easter_egg"));
+
         let style = this.animationStyle || "random";
-        if (style === "random") return random[Math.floor(Math.random() * random.length)];
-        return all.indexOf(style) >= 0 ? style : "bounce";
+        if (style !== "random") {
+            return all.indexOf(style) >= 0 ? style : "bounce";
+        }
+        // ~4% chance to roll one of the easter eggs (if any are defined).
+        if (eggs.length && Math.random() < 0.04) {
+            return eggs[Math.floor(Math.random() * eggs.length)];
+        }
+        return pool[Math.floor(Math.random() * pool.length)];
     }
 
     _animate() {
@@ -638,283 +667,7 @@ class ClaudeUsageApplet extends Applet.Applet {
 
     _playAnimation(name) {
         this._resetMotion();
-        let fn = this["_anim_" + name];
-        if (typeof fn === "function") fn.call(this, this._state);
-    }
-
-    _anim_bounce(s) {
-        Tweener.addTween(s, {
-            bodyY: -6,
-            time: 0.18,
-            transition: "easeOutQuad",
-            onUpdate: () => this._repaint(),
-            onComplete: () => {
-                Tweener.addTween(s, {
-                    bodyY: 0,
-                    time: 0.4,
-                    transition: "easeOutBounce",
-                    onUpdate: () => this._repaint()
-                });
-            }
-        });
-    }
-
-    _anim_wiggle(s) {
-        let step = (target, time, next) => {
-            Tweener.addTween(s, {
-                tilt: target, time: time,
-                onUpdate: () => this._repaint(),
-                onComplete: next || null
-            });
-        };
-        step(-14, 0.1, () => step(14, 0.12, () => step(-8, 0.1, () => step(0, 0.12))));
-    }
-
-    _anim_squish(s) {
-        Tweener.addTween(s, {
-            scaleX: 1.15, scaleY: 0.80,
-            time: 0.12, transition: "easeOutQuad",
-            onUpdate: () => this._repaint(),
-            onComplete: () => {
-                Tweener.addTween(s, {
-                    scaleX: 0.90, scaleY: 1.12,
-                    time: 0.18, transition: "easeOutQuad",
-                    onUpdate: () => this._repaint(),
-                    onComplete: () => {
-                        Tweener.addTween(s, {
-                            scaleX: 1, scaleY: 1,
-                            time: 0.24, transition: "easeOutBounce",
-                            onUpdate: () => this._repaint()
-                        });
-                    }
-                });
-            }
-        });
-    }
-
-    _anim_spin(s) {
-        Tweener.addTween(s, {
-            tilt: 360, time: 0.7, transition: "easeInOutCubic",
-            onUpdate: () => this._repaint(),
-            onComplete: () => { s.tilt = 0; this._repaint(); }
-        });
-    }
-
-    _anim_shake(s) {
-        let steps = [5, -5, 4, -4, 2, -2, 0];
-        let i = 0;
-        let step = () => {
-            if (i >= steps.length) return;
-            Tweener.addTween(s, {
-                bodyX: steps[i], time: 0.06,
-                onUpdate: () => this._repaint(),
-                onComplete: () => { i++; step(); }
-            });
-        };
-        step();
-    }
-
-    _anim_tilt(s) {
-        let dir = Math.random() < 0.5 ? -1 : 1;
-        Tweener.addTween(s, {
-            tilt: dir * 18, time: 0.25, transition: "easeOutQuad",
-            onUpdate: () => this._repaint(),
-            onComplete: () => {
-                Mainloop.timeout_add(450, () => {
-                    Tweener.addTween(s, {
-                        tilt: 0, time: 0.35, transition: "easeOutBack",
-                        onUpdate: () => this._repaint()
-                    });
-                    return false;
-                });
-            }
-        });
-    }
-
-    // 'Walk' = alternate foot pairs lifting + tiny body bob
-    _anim_walk(s) {
-        s.walking = 1;
-        s.walkPhase = 0;
-        let steps = 0;
-        let max = 4;
-        let toggle = () => {
-            if (steps >= max) {
-                Tweener.addTween(s, {
-                    walking: 0, bodyY: 0, time: 0.15,
-                    onUpdate: () => this._repaint(),
-                    onComplete: () => { s.walkPhase = 0; }
-                });
-                return;
-            }
-            let nextPhase = (steps % 2 === 0) ? 0.99 : 0;
-            let nextBob   = (steps % 2 === 0) ? -2 : 0;
-            Tweener.addTween(s, {
-                walkPhase: nextPhase, bodyY: nextBob, time: 0.22,
-                transition: "easeInOutQuad",
-                onUpdate: () => this._repaint(),
-                onComplete: () => { steps++; toggle(); }
-            });
-        };
-        toggle();
-    }
-
-    // 'Wink' = close one eye briefly
-    _anim_wink(s) {
-        s.eyeState = Math.random() < 0.5 ? "wink-l" : "wink-r";
-        this._repaint();
-        Mainloop.timeout_add(450, () => {
-            s.eyeState = "normal";
-            this._repaint();
-            return false;
-        });
-    }
-
-    // 'Yawn' = sleepy eyes + open mouth, slight bob, then back
-    _anim_yawn(s) {
-        s.eyeState = "sleepy";
-        s.mouthShape = 1; // "O"
-        Tweener.addTween(s, {
-            mouthVisible: 1, time: 0.25, transition: "easeOutQuad",
-            onUpdate: () => this._repaint()
-        });
-        Mainloop.timeout_add(900, () => {
-            Tweener.addTween(s, {
-                mouthVisible: 0, time: 0.3, transition: "easeInQuad",
-                onUpdate: () => this._repaint(),
-                onComplete: () => {
-                    s.eyeState = "normal";
-                    s.mouthShape = 0;
-                    this._repaint();
-                }
-            });
-            return false;
-        });
-    }
-
-    // 'LookAround' = eyes drift left then right then center
-    _anim_lookAround(s) {
-        Tweener.addTween(s, {
-            eyeShift: 1, time: 0.25, transition: "easeOutQuad",
-            onUpdate: () => this._repaint(),
-            onComplete: () => {
-                Mainloop.timeout_add(220, () => {
-                    Tweener.addTween(s, {
-                        eyeShift: -1, time: 0.35, transition: "easeInOutQuad",
-                        onUpdate: () => this._repaint(),
-                        onComplete: () => {
-                            Mainloop.timeout_add(220, () => {
-                                Tweener.addTween(s, {
-                                    eyeShift: 0, time: 0.25, transition: "easeOutQuad",
-                                    onUpdate: () => this._repaint()
-                                });
-                                return false;
-                            });
-                        }
-                    });
-                    return false;
-                });
-            }
-        });
-    }
-
-    // 'Morph' = transform into another form, hold briefly, return to clawd
-    _anim_morph(s) {
-        let target = MORPH_TARGETS[Math.floor(Math.random() * MORPH_TARGETS.length)];
-        s.formA = "clawd";
-        s.formB = target;
-        s.morphT = 0;
-        Tweener.addTween(s, {
-            morphT: 1, time: 0.6,
-            transition: "easeInOutQuad",
-            onUpdate: () => this._repaint(),
-            onComplete: () => {
-                Mainloop.timeout_add(1400, () => {
-                    Tweener.addTween(s, {
-                        morphT: 0, time: 0.5,
-                        transition: "easeInOutQuad",
-                        onUpdate: () => this._repaint(),
-                        onComplete: () => {
-                            s.formB = "clawd";
-                            this._repaint();
-                        }
-                    });
-                    return false;
-                });
-            }
-        });
-    }
-
-    // 'Rainbow' = sweep through the rainbow palette for ~2 cycles
-    _anim_rainbow(s) {
-        s.rainbowActive = 1;
-        s.rainbowPhase = 0;
-        let cycles = 2;
-        let run = () => {
-            if (cycles <= 0) {
-                Tweener.addTween(s, {
-                    rainbowActive: 0, time: 0.3,
-                    onUpdate: () => this._repaint()
-                });
-                return;
-            }
-            s.rainbowPhase = 0;
-            Tweener.addTween(s, {
-                rainbowPhase: 1, time: 1.2, transition: "linear",
-                onUpdate: () => this._repaint(),
-                onComplete: () => { cycles--; run(); }
-            });
-        };
-        run();
-    }
-
-    // 'Glitch' = rapid random form swaps with brief shake, like he's bugging out
-    _anim_glitch(s) {
-        let steps = 6;
-        let i = 0;
-        let tick = () => {
-            if (i >= steps) {
-                s.formA = "clawd"; s.formB = "clawd"; s.morphT = 0;
-                Tweener.addTween(s, {
-                    bodyX: 0, time: 0.08,
-                    onUpdate: () => this._repaint()
-                });
-                return;
-            }
-            let pick = MORPH_TARGETS[Math.floor(Math.random() * MORPH_TARGETS.length)];
-            s.formA = pick;
-            s.formB = pick;
-            s.morphT = 0;
-            s.bodyX = (Math.random() * 6 - 3);
-            this._repaint();
-            i++;
-            Mainloop.timeout_add(70, () => { tick(); return false; });
-        };
-        tick();
-    }
-
-    // 'Excited' = flash to brighter orange + rapid shake
-    _anim_excited(s) {
-        Tweener.addTween(s, {
-            excited: 1, time: 0.1,
-            onUpdate: () => this._repaint()
-        });
-        let steps = [3, -3, 3, -3, 2, -2, 0];
-        let i = 0;
-        let step = () => {
-            if (i >= steps.length) {
-                Tweener.addTween(s, {
-                    excited: 0, time: 0.3,
-                    onUpdate: () => this._repaint()
-                });
-                return;
-            }
-            Tweener.addTween(s, {
-                bodyX: steps[i], time: 0.05,
-                onUpdate: () => this._repaint(),
-                onComplete: () => { i++; step(); }
-            });
-        };
-        step();
+        this._runner.play(name);
     }
 
     _scheduleIdle() {
@@ -1208,46 +961,62 @@ class ClaudeUsageApplet extends Applet.Applet {
         if (this.devMode) {
             this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
             let devItem = new PopupMenu.PopupSubMenuMenuItem("Animation playground");
-            const anims = [
-                "bounce", "wiggle", "squish", "spin", "shake", "tilt",
-                "walk", "wink", "yawn", "lookAround",
-                "morph", "glitch", "rainbow", "excited"
-            ];
-            // Grid of buttons — 2 per row, equal width via x_expand + x_align FILL.
-            const PER_ROW = 2;
-            for (let i = 0; i < anims.length; i += PER_ROW) {
-                let row = new PopupMenu.PopupBaseMenuItem({
-                    reactive: false, activate: false, hover: false
-                });
-                let box = new St.BoxLayout({
-                    vertical: false,
-                    style_class: "claude-usage-playground-row"
-                });
-                box.set_x_expand(true);
-                for (let j = 0; j < PER_ROW; j++) {
-                    if (i + j < anims.length) {
-                        let name = anims[i + j];
-                        let btn = new St.Button({
-                            label: "▶ " + name,
-                            can_focus: true,
-                            style_class: "claude-usage-playground-btn"
-                        });
-                        btn.set_x_expand(true);
-                        btn.set_x_align(Clutter.ActorAlign.FILL);
-                        btn.connect("clicked", () => {
-                            this._playAnimation(name);
-                        });
-                        box.add_actor(btn);
-                    } else {
-                        // Pad with an empty equal-width spacer so the last odd row
-                        // doesn't have a full-width button.
-                        let spacer = new St.Widget({ x_expand: true });
-                        box.add_actor(spacer);
+
+            // Build a 2-column grid of clickable buttons inside the given submenu.
+            const buildGrid = (parentMenu, items, onClick) => {
+                const PER_ROW = 2;
+                for (let i = 0; i < items.length; i += PER_ROW) {
+                    let row = new PopupMenu.PopupBaseMenuItem({
+                        reactive: false, activate: false, hover: false
+                    });
+                    let box = new St.BoxLayout({
+                        vertical: false,
+                        style_class: "claude-usage-playground-row"
+                    });
+                    box.set_x_expand(true);
+                    for (let j = 0; j < PER_ROW; j++) {
+                        if (i + j < items.length) {
+                            let it = items[i + j];
+                            let btn = new St.Button({
+                                label: it.label,
+                                can_focus: true,
+                                style_class: "claude-usage-playground-btn"
+                            });
+                            btn.set_x_expand(true);
+                            btn.set_x_align(Clutter.ActorAlign.FILL);
+                            btn.connect("clicked", () => onClick(it.value));
+                            box.add_actor(btn);
+                        } else {
+                            // Pad with an empty equal-width spacer so the last odd
+                            // row doesn't have one full-width button.
+                            box.add_actor(new St.Widget({ x_expand: true }));
+                        }
                     }
+                    row.addActor(box, { expand: true, span: -1 });
+                    parentMenu.addMenuItem(row);
                 }
-                row.addActor(box, { expand: true, span: -1 });
-                devItem.menu.addMenuItem(row);
-            }
+            };
+
+            // Animations — derived from animations.json so newly-added entries
+            // appear automatically. Easter eggs (e.g. grow) included so you
+            // can trigger them on demand here.
+            const anims = this._runner.listAnimations()
+                .map(n => ({label: "▶ " + n, value: n}));
+            buildGrid(devItem.menu, anims, name => this._playAnimation(name));
+
+            // Morph-to: one button per form (except clawd, which is the default).
+            // Each button forces the morph animation to pick that form.
+            devItem.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+            let header = new PopupMenu.PopupMenuItem("Morph to…", { reactive: false });
+            header.label.set_style_class_name("popup-subtitle-menu-item");
+            devItem.menu.addMenuItem(header);
+            const forms = MORPH_TARGETS.map(n => ({label: "◆ " + n, value: n}));
+            buildGrid(devItem.menu, forms, formName => {
+                this._resetMotion();
+                this._runner.play("morph", null,
+                    {randomLists: {MORPH_TARGETS: [formName]}});
+            });
+
             this.menu.addMenuItem(devItem);
         }
 

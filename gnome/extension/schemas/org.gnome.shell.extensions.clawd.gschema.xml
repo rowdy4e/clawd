@@ -26,7 +26,7 @@
           path="/org/gnome/shell/extensions/clawd/">
     <key name="refresh-seconds" type="i">
       <range min="60" max="7200"/>
-      <default>300</default>
+      <default>500</default>
       <summary>Refresh interval (seconds)</summary>
       <description>How often to query Anthropic /api/oauth/usage. Auto-backs-off on HTTP 429.</description>
     </key>

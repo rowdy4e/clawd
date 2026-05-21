@@ -1,0 +1,327 @@
+{
+  "_note": "Single source of truth for Clawd's pixel-art forms. Loaded by both the Cinnamon applet (JS) and the cinnamon-screensaver widget (Python). All forms are 18 cols wide; row count is per-form (6 for chunky, 12 for finer detail). Glyphs: O=body, E=eye gap (drawn when blinking), F=foot (walk-animated), .=transparent. Canonical positions (auto-derived from rows): eye_row=floor(rows/4), mouth_row=round(rows*0.58), pivot_row=rows-2.",
+  "grid": {"cols": 18, "rows": 12},
+  "palettes": {
+    "rainbow": [
+      [0.95, 0.20, 0.20],
+      [0.95, 0.55, 0.10],
+      [0.95, 0.85, 0.10],
+      [0.30, 0.85, 0.30],
+      [0.20, 0.55, 0.95],
+      [0.55, 0.30, 0.85],
+      [0.85, 0.30, 0.85]
+    ]
+  },
+  "forms": {
+    "clawd": {
+      "color": [0.843, 0.467, 0.341],
+      "rows": 6,
+      "pixels": [
+        "...OOOOOOOOOOOO...",
+        "...OOEOOOOOOEOO...",
+        ".OOOOOOOOOOOOOOOO.",
+        "...OOOOOOOOOOOO...",
+        "....F.F....F.F....",
+        ".................."
+      ]
+    },
+    "heart": {
+      "color": [0.93, 0.27, 0.49],
+      "rows": 8,
+      "pixels": [
+        "..OOOO......OOOO..",
+        ".OOOOOOOOOOOOOOOO.",
+        ".OOOOOOOOOOOOOOOO.",
+        ".OOOOOOOOOOOOOOOO.",
+        "..OOOOOOOOOOOOOO..",
+        "....OOOOOOOOOO....",
+        "......OOOOOO......",
+        ".......OOOO......."
+      ]
+    },
+    "ghost": {
+      "color": [0.88, 0.90, 0.96],
+      "pixels": [
+        ".....OOOOOOOO.....",
+        "....OOOOOOOOOO....",
+        "...OOOOOOOOOOOO...",
+        "...OOEOOOOOOEOO...",
+        "..OOOOOOOOOOOOOO..",
+        "..OOOOOOOOOOOOOO..",
+        "..OOOOOOOOOOOOOO..",
+        "..OOOOOOOOOOOOOO..",
+        "..OOOOOOOOOOOOOO..",
+        "..OOOOOOOOOOOOOO..",
+        "..OOOOOOOOOOOOOO..",
+        "..O.OO.OO.OO.OO.O."
+      ]
+    },
+    "octopus": {
+      "color": [0.62, 0.40, 0.85],
+      "pixels": [
+        "......OOOOOO......",
+        "....OOOOOOOOOO....",
+        "...OOOOOOOOOOOO...",
+        "...OOEOOOOOOEOO...",
+        "..OOOOOOOOOOOOOO..",
+        "..OOOOOOOOOOOOOO..",
+        "..OOOOOOOOOOOOOO..",
+        "..OOOOOOOOOOOOOO..",
+        ".O.O.O.O.O.O.O.O.O",
+        "O.O.O.O.O.O.O.O.O.",
+        ".O.O.O.O.O.O.O.O.O",
+        "O.O.O.O.O.O.O.O.O."
+      ]
+    },
+    "sparkle": {
+      "color": [0.98, 0.78, 0.18],
+      "pixels": [
+        "........OO........",
+        "........OO........",
+        "...O....OO....O...",
+        "....O...OO...O....",
+        ".....OOOOOOOO.....",
+        "OOOOOOOOOOOOOOOOOO",
+        "OOOOOOOOOOOOOOOOOO",
+        ".....OOOOOOOO.....",
+        "....O...OO...O....",
+        "...O....OO....O...",
+        "........OO........",
+        "........OO........"
+      ]
+    },
+    "blob": {
+      "color": [0.35, 0.82, 0.45],
+      "pixels": [
+        "..................",
+        "......OOOOOO......",
+        "....OOOOOOOOOO....",
+        "..OOOOOOOOOOOOOO..",
+        "..OOOOOOOOOOOOOO..",
+        ".OOOOOOOOOOOOOOOO.",
+        ".OOOOOOOOOOOOOOOO.",
+        ".OOOOOOOOOOOOOOOO.",
+        "..OOOOOOOOOOOOOO..",
+        "..OOOOOOOOOOOOOO..",
+        "...OOOOOOOOOOOO...",
+        ".....OOOOOOOO....."
+      ]
+    },
+    "pacman": {
+      "color": [0.98, 0.85, 0.10],
+      "pixels": [
+        "......OOOOOO......",
+        "....OOOOOOOOOO....",
+        "..OOOOOOOOOOOOOO..",
+        ".OOOOOOOOOOOOOO...",
+        ".OOOOOOOOOOOO.....",
+        ".OOOOOOOOOO.......",
+        ".OOOOOOOO.........",
+        ".OOOOOOOOOO.......",
+        ".OOOOOOOOOOOO.....",
+        "..OOOOOOOOOOOOOO..",
+        "....OOOOOOOOOO....",
+        "......OOOOOO......"
+      ]
+    },
+    "invader": {
+      "color": [0.30, 0.90, 0.40],
+      "pixels": [
+        "..................",
+        "....O........O....",
+        "....O........O....",
+        "....OOOOOOOOOO....",
+        "..OOOOOOOOOOOOOO..",
+        "..OO.OOOOOOOO.OO..",
+        "..OOOOOOOOOOOOOO..",
+        "..O.OOOOOOOOOO.O..",
+        "..O.OO......OO.O..",
+        "....OO......OO....",
+        "...OO........OO...",
+        "..OO..........OO.."
+      ]
+    },
+    "crown": {
+      "color": [0.96, 0.80, 0.20],
+      "pixels": [
+        "..................",
+        "..O....O....O....O",
+        "..OO..OOO..OOO..OO",
+        "..OO.OOOO..OOOO.OO",
+        "..OOOOOOOOOOOOOOOO",
+        "..OOOOOOOOOOOOOOOO",
+        "..OOOOOOOOOOOOOOOO",
+        "..OO.OO.OO.OO.OO.O",
+        "..OOOOOOOOOOOOOOOO",
+        "..................",
+        "..................",
+        ".................."
+      ]
+    },
+    "skull": {
+      "color": [0.92, 0.92, 0.95],
+      "pixels": [
+        "..................",
+        ".....OOOOOOOO.....",
+        "....OOOOOOOOOO....",
+        "...OOOOOOOOOOOO...",
+        "...OO..OOOO..OO...",
+        "...OO..OOOO..OO...",
+        "...OOOOO..OOOOO...",
+        "...OOOOOOOOOOOO...",
+        "....OOOOOOOOOO....",
+        "....O..O..O..O....",
+        ".....OOOOOOOO.....",
+        ".................."
+      ]
+    },
+    "yoda": {
+      "color": [0.62, 0.78, 0.45],
+      "eye_row": 6,
+      "pixels": [
+        "..................",
+        "......OOOOOO......",
+        "....OOOOOOOOOO....",
+        "OOOOOOOOOOOOOOOOOO",
+        "OO..OOOOOOOOOO..OO",
+        "....OOOOOOOOOO....",
+        "...OOEOOOOOOEOO...",
+        "...OOOOOOOOOOOO...",
+        "....OOOOOOOOOO....",
+        "....OOOOOOOOOO....",
+        ".....OOOOOOOO.....",
+        ".....OOOOOOOO....."
+      ]
+    },
+    "goomba": {
+      "color": [0.55, 0.35, 0.17],
+      "pixels": [
+        "..................",
+        ".....OOOOOOOO.....",
+        "...OOOOOOOOOOOO...",
+        "..OOOOOOOOOOOOOO..",
+        "..OO..OOOOOO..OO..",
+        "..OOO..OOOO..OOO..",
+        "..OOOOOOOOOOOOOO..",
+        "..OOOOOOOOOOOOOO..",
+        "...OOOOOOOOOOOO...",
+        "....OOOOOOOOOO....",
+        "..OOOO......OOOO..",
+        "..OOOO......OOOO.."
+      ]
+    },
+    "mushroom": {
+      "color": [0.88, 0.18, 0.18],
+      "palette": {
+        "R": [0.88, 0.18, 0.18],
+        "W": [0.98, 0.98, 0.95],
+        "S": [0.96, 0.86, 0.65],
+        "K": [0.05, 0.05, 0.05]
+      },
+      "pixels": [
+        "..................",
+        ".....RRRRRRRR.....",
+        "...RRRRRRRRRRRR...",
+        "..RRRRRRRRRRRRRR..",
+        ".RRWWRRRRRRRRWWRR.",
+        ".RRWWRRRRRRRRWWRR.",
+        ".RRRRRRRRRRRRRRRR.",
+        "..RRRRRRRRRRRRRR..",
+        "....SSSSSSSSSS....",
+        "....SKSSSSSSKS....",
+        "....SSSSSSSSSS....",
+        "....SSSSSSSSSS...."
+      ]
+    },
+    "pokeball": {
+      "color": [0.88, 0.18, 0.18],
+      "palette": {
+        "R": [0.88, 0.18, 0.18],
+        "W": [0.98, 0.98, 0.98],
+        "K": [0.08, 0.08, 0.08],
+        "B": [0.82, 0.82, 0.85]
+      },
+      "pixels": [
+        "..................",
+        ".....RRRRRRRR.....",
+        "...RRRRRRRRRRRR...",
+        "..RRRRRRRRRRRRRR..",
+        ".RRRRRRRRRRRRRRRR.",
+        ".KKKKKKKBBKKKKKKK.",
+        ".WWWWWWWBBWWWWWWW.",
+        ".WWWWWWWWWWWWWWWW.",
+        "..WWWWWWWWWWWWWW..",
+        "...WWWWWWWWWWWW...",
+        ".....WWWWWWWW.....",
+        ".................."
+      ]
+    },
+    "kirby": {
+      "color": [0.98, 0.65, 0.75],
+      "palette": {
+        "P": [0.98, 0.65, 0.75],
+        "K": [0.10, 0.10, 0.10],
+        "C": [0.95, 0.50, 0.65],
+        "R": [0.88, 0.18, 0.18]
+      },
+      "pixels": [
+        "..................",
+        "....PPPPPPPPPP....",
+        "..PPPPPPPPPPPPPP..",
+        ".PPPPPPPPPPPPPPPP.",
+        ".PPPKPPPPPPPPKPPP.",
+        ".PPCCPPPPPPPPCCPP.",
+        ".PPPPPPPPPPPPPPPP.",
+        "..PPPPPPPPPPPPPP..",
+        "...PPPPPPPPPPPP...",
+        "....PPPPPPPPPP....",
+        "..RRR........RRR..",
+        "..RRR........RRR.."
+      ]
+    },
+    "snorlax": {
+      "color": [0.30, 0.40, 0.60],
+      "palette": {
+        "B": [0.30, 0.40, 0.60],
+        "C": [0.96, 0.86, 0.72],
+        "K": [0.05, 0.05, 0.05]
+      },
+      "pixels": [
+        "..................",
+        "....BBBBBBBBBB....",
+        "..BBBBBBBBBBBBBB..",
+        ".BBBKKKBBBBKKKBBB.",
+        ".BBBBBBBBBBBBBBBB.",
+        ".BBBBBBKKKKBBBBBB.",
+        "BBBBCCCCCCCCCCBBBB",
+        "BBCCCCCCCCCCCCCCBB",
+        "BBCCCCCCCCCCCCCCBB",
+        "BBCCCCCCCCCCCCCCBB",
+        "BBBBBBBBBBBBBBBBBB",
+        "..BBB........BBB.."
+      ]
+    },
+    "amongus": {
+      "color": [0.85, 0.18, 0.18],
+      "palette": {
+        "B": [0.85, 0.18, 0.18],
+        "W": [0.55, 0.85, 0.95],
+        "K": [0.30, 0.06, 0.06]
+      },
+      "pixels": [
+        "..................",
+        "....BBBBBBBBBB....",
+        "..BBBBBBBBBBBBBB..",
+        "..BBWWWWBBBBBBBB..",
+        "..BBWWWWBBBBBBBBB.",
+        "..BBBBBBBBBBBBBBB.",
+        "..BBBBBBBBBBBBBBB.",
+        "..BBBBBBBBBBBBBB..",
+        "..BBBBBBBBBBBBBB..",
+        "..BBBBBBBBBBBBBB..",
+        "...BBB......BBB...",
+        "...BBB......BBB..."
+      ]
+    }
+  }
+}

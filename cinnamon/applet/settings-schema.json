@@ -25,7 +25,7 @@
     },
     "refreshSeconds": {
         "type": "spinbutton",
-        "default": 300,
+        "default": 500,
         "min": 60,
         "max": 7200,
         "step": 30,
