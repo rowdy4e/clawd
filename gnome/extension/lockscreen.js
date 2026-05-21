@@ -71,10 +71,12 @@ function makeState() {
 export const LockClawd = GObject.registerClass(
 class LockClawd extends St.DrawingArea {
     _init(monitor) {
-        // Sized to fit inside the clock BoxLayout below the date
+        // Sized to fit inside the clock BoxLayout below the date.
+        // Square cells: with the shared grid now at ROWS=12 (was 6), this
+        // keeps the icon at the same physical size as the original.
         const targetBodyW = Math.floor(monitor.width * 0.12);
         const xUnit = Math.max(6, Math.floor(targetBodyW / COLS));
-        const yUnit = xUnit * 2;
+        const yUnit = xUnit;
         const padX = 2 * xUnit;
         const padY = 2 * yUnit;
         const bodyW = xUnit * COLS;
