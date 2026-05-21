@@ -25,6 +25,12 @@ import {AnimationRunner} from './anim_runner.js';
 // bypasses extension actors). File kept in repo for reference.
 // import {LockClawdManager} from './lockscreen.js';
 
+// Bar colors (popup menu progress bar). Mirror the Cinnamon applet.
+const COLOR_OK    = [0.388, 0.400, 0.945];
+const COLOR_WARN  = [0.961, 0.620, 0.043];
+const COLOR_CRIT  = [0.937, 0.267, 0.267];
+const COLOR_TRACK = [1.0, 1.0, 1.0, 0.18];
+
 // Random one-liners Clawd throws at you on the lock screen.
 // Ported from the Cinnamon python widget for feature parity.
 const LOCK_MESSAGES = [
@@ -407,27 +413,153 @@ class ClawdIndicator extends PanelMenu.Button {
     }
 
     // ─── Menu ───
-    _buildMenu() {
-        this._headerItem = new PopupMenu.PopupMenuItem('Claude Code · loading…', { reactive: false });
-        this._headerItem.label.set_style_class_name('clawd-popup-header');
-        this.menu.addMenuItem(this._headerItem);
-        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+    // ─── Progress bar (Cairo) ───
+    _roundedRect(cr, x, y, w, h, r) {
+        r = Math.min(r, w / 2, h / 2);
+        cr.newSubPath();
+        cr.arc(x + w - r, y + r,       r, -Math.PI / 2, 0);
+        cr.arc(x + w - r, y + h - r,   r, 0, Math.PI / 2);
+        cr.arc(x + r,     y + h - r,   r, Math.PI / 2, Math.PI);
+        cr.arc(x + r,     y + r,       r, Math.PI, 1.5 * Math.PI);
+        cr.closePath();
+    }
 
-        this._dataItems = {};
-        for (const k of ['session', 'week', 'sonnet', 'opus', 'credits']) {
-            const item = new PopupMenu.PopupMenuItem('', { reactive: false });
-            this.menu.addMenuItem(item);
-            this._dataItems[k] = item;
-            item.visible = false;
+    _computePercent(usage) {
+        const sec = this._utilSection(usage);
+        if (!sec || sec.utilization == null) return 0;
+        return Math.max(0, Math.min(1, sec.utilization / 100));
+    }
+
+    _utilSection(usage) {
+        if (!usage) return null;
+        const mode = this._settings ? this._settings.get_string('bar-mode') : 'session';
+        if (mode === 'session') return usage.five_hour;
+        if (mode === 'week') return usage.seven_day;
+        if (mode === 'week-sonnet') return usage.seven_day_sonnet;
+        if (mode === 'credits') return usage.extra_usage;
+        return usage.five_hour;
+    }
+
+    _drawBar(area) {
+        const cr = area.get_context();
+        const [w, h] = area.get_surface_size();
+        const radius = h / 2;
+
+        this._roundedRect(cr, 0, 0, w, h, radius);
+        cr.setSourceRGBA.apply(cr, COLOR_TRACK);
+        cr.fill();
+
+        const pct = this._computePercent(this._lastUsage);
+        if (pct > 0 && !this._lastError) {
+            const fillW = Math.max(h, Math.round(w * pct));
+            this._roundedRect(cr, 0, 0, fillW, h, radius);
+            let c = COLOR_OK;
+            if (pct >= 0.85) c = COLOR_CRIT;
+            else if (pct >= 0.65) c = COLOR_WARN;
+            cr.setSourceRGB(c[0], c[1], c[2]);
+            cr.fill();
         }
-        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+        cr.$dispose();
+    }
 
-        this._refreshAction = new PopupMenu.PopupMenuItem('Refresh now');
-        this._refreshAction.connect('activate', () => this._refresh());
-        this.menu.addMenuItem(this._refreshAction);
+    // ─── Menu row helper ───
+    _makeRow(label, value) {
+        const row = new PopupMenu.PopupBaseMenuItem({reactive: false, activate: false});
+        const box = new St.BoxLayout({vertical: false, style_class: 'clawd-popup-row'});
+        const l = new St.Label({text: label, style_class: 'clawd-popup-row-label'});
+        const v = new St.Label({text: value, style_class: 'clawd-popup-row-value'});
+        v.set_x_expand(true);
+        v.set_x_align(Clutter.ActorAlign.END);
+        box.add_child(l);
+        box.add_child(v);
+        box.set_x_expand(true);
+        row.add_child(box);
+        return {item: row, valueLabel: v};
+    }
 
+    _buildMenu() {
+        // Menu is rebuilt fresh in _rebuildMenu — only initialise containers
+        // here. (Mirrors the Cinnamon applet so the GNOME popup gets the same
+        // styled header + progress bar + spaced rows.)
+        this._barArea = null;
+        this._timeLabels = [];
         this._playgroundItem = null;
+        this._rebuildMenu();
         this._rebuildPlaygroundMenu();
+
+        // Update the live "Updated X ago / next in Y" labels every second
+        // while the menu is open.
+        this._menuTickId = null;
+        this.menu.connect('open-state-changed', (m, open) => {
+            if (open) {
+                this._updateTimeLabels();
+                if (!this._menuTickId) {
+                    this._menuTickId = GLib.timeout_add_seconds(
+                        GLib.PRIORITY_DEFAULT, 1, () => {
+                            this._updateTimeLabels();
+                            return GLib.SOURCE_CONTINUE;
+                        });
+                }
+            } else if (this._menuTickId) {
+                GLib.source_remove(this._menuTickId);
+                this._menuTickId = null;
+            }
+        });
+    }
+
+    _updateTimeLabels() {
+        for (const entry of this._timeLabels) {
+            try {
+                if (entry.label) entry.label.set_text(entry.updater());
+            } catch (e) { /* ignore */ }
+        }
+    }
+
+    _barModeLabel() {
+        const mode = this._settings ? this._settings.get_string('bar-mode') : 'session';
+        if (mode === 'week') return 'week';
+        if (mode === 'week-sonnet') return 'week (Sonnet)';
+        if (mode === 'credits') return 'credits';
+        return 'session';
+    }
+
+    _formatResetIn(iso) {
+        if (!iso) return '—';
+        try {
+            const target = new Date(iso).getTime();
+            const now = Date.now();
+            if (target <= now) return 'soon';
+            const mins = Math.floor((target - now) / 60000);
+            if (mins < 60) return `in ${mins} min`;
+            const h = Math.floor(mins / 60), m = mins % 60;
+            if (h < 24) return `in ${h}h ${(m < 10 ? '0' : '') + m}m`;
+            return `in ${Math.floor(h / 24)}d`;
+        } catch (e) { return '—'; }
+    }
+
+    _footerText() {
+        const parts = [];
+        if (this._lastUpdated) {
+            const ageSec = Math.floor((Date.now() - this._lastUpdated) / 1000);
+            const ageStr = ageSec < 60
+                ? ageSec + ' s ago'
+                : Math.floor(ageSec / 60) + ' min ago';
+            parts.push('Updated ' + ageStr);
+        }
+        if (this._rateLimitedUntil > Date.now()) {
+            const wait = this._rateLimitedUntil - Date.now();
+            const str = wait < 60000
+                ? Math.ceil(wait / 1000) + ' s'
+                : Math.ceil(wait / 60000) + ' min';
+            parts.push('rate-limited (retry in ' + str + ')');
+        } else if (this._nextRefreshAt && this._nextRefreshAt > Date.now()) {
+            const until = this._nextRefreshAt - Date.now();
+            const str = until < 60000
+                ? Math.ceil(until / 1000) + ' s'
+                : Math.ceil(until / 60000) + ' min';
+            parts.push('next in ' + str);
+        }
+        return parts.length ? parts.join('  ·  ') : '—';
     }
 
     _rebuildPlaygroundMenu() {
@@ -469,71 +601,106 @@ class ClawdIndicator extends PanelMenu.Button {
     }
 
     _rebuildMenu() {
+        this.menu.removeAll();
+        const usage = this._lastUsage;
+        const pct = Math.round(this._computePercent(usage) * 100);
+
+        // Header label
+        const headerItem = new PopupMenu.PopupBaseMenuItem({reactive: false, activate: false});
+        const headerText = this._lastError
+            ? 'Claude Code — error'
+            : (usage
+                ? `Claude Code · ${pct}% ${this._barModeLabel()}`
+                : 'Claude Code · loading…');
+        const header = new St.Label({text: headerText, style_class: 'clawd-popup-header'});
+        headerItem.add_child(header);
+        this.menu.addMenuItem(headerItem);
+
+        // Progress bar (Cairo)
+        const barItem = new PopupMenu.PopupBaseMenuItem({reactive: false, activate: false});
+        const barBox = new St.BoxLayout({vertical: false, style_class: 'clawd-popup-bar-container'});
+        this._barArea = new St.DrawingArea({
+            width: 260, height: 10,
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        this._barArea.connect('repaint', (area) => this._drawBar(area));
+        barBox.add_child(this._barArea);
+        barBox.set_x_expand(true);
+        barItem.add_child(barBox);
+        this.menu.addMenuItem(barItem);
+
+        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+
         if (this._lastError) {
-            this._headerItem.label.text = 'Claude Code — error: ' + this._lastError;
-            for (const k in this._dataItems) this._dataItems[k].visible = false;
-            return;
-        }
-        const u = this._lastUsage;
-        if (!u) {
-            this._headerItem.label.text = 'Claude Code · loading…';
-            return;
-        }
-        const barMode = this._settings ? this._settings.get_string('bar-mode') : 'session';
-        const headerSrc = {
-            'session':     {sec: u.five_hour,         label: 'session'},
-            'week':        {sec: u.seven_day,         label: 'week'},
-            'week-sonnet': {sec: u.seven_day_sonnet,  label: 'week (Sonnet)'},
-            'credits':     {sec: u.extra_usage && u.extra_usage.is_enabled ? u.extra_usage : null,
-                            label: 'credits'},
-        }[barMode] || {sec: u.five_hour, label: 'session'};
-        const pct = headerSrc.sec && headerSrc.sec.utilization != null
-            ? Math.round(headerSrc.sec.utilization) : 0;
-        this._headerItem.label.text = `Claude Code · ${pct}% ${headerSrc.label}`;
-
-        const fmtPct = (sec) => sec && sec.utilization != null
-            ? sec.utilization.toFixed(0) + ' %' : '—';
-        const fmtResetIn = (iso) => {
-            if (!iso) return '—';
-            try {
-                const target = new Date(iso).getTime();
-                const now = Date.now();
-                if (target <= now) return 'soon';
-                const mins = Math.floor((target - now) / 60000);
-                if (mins < 60) return `in ${mins} min`;
-                const h = Math.floor(mins / 60), m = mins % 60;
-                if (h < 24) return `in ${h}h ${m}m`;
-                return `in ${Math.floor(h / 24)}d`;
-            } catch (e) { return '—'; }
-        };
-
-        const setRow = (key, label, value, show) => {
-            const it = this._dataItems[key];
-            if (!show) { it.visible = false; return; }
-            it.label.text = `${label}    ${value}`;
-            it.visible = true;
-        };
-
-        setRow('session', 'Session',
-            `${fmtPct(u.five_hour)}  ·  resets ${fmtResetIn(u.five_hour?.resets_at)}`,
-            !!u.five_hour);
-        setRow('week', 'Week (all)',
-            `${fmtPct(u.seven_day)}  ·  resets ${fmtResetIn(u.seven_day?.resets_at)}`,
-            !!u.seven_day);
-        setRow('sonnet', 'Week (Sonnet)', fmtPct(u.seven_day_sonnet),
-            !!u.seven_day_sonnet);
-        setRow('opus', 'Week (Opus)', fmtPct(u.seven_day_opus),
-            !!u.seven_day_opus);
-
-        const e = u.extra_usage;
-        if (e && e.is_enabled) {
-            const sym = e.currency === 'EUR' ? '€' : e.currency === 'USD' ? '$' : (e.currency + ' ');
-            setRow('credits', 'Credits',
-                `${fmtPct(e)}  ·  ${sym}${(e.used_credits/100).toFixed(2)} / ${sym}${(e.monthly_limit/100).toFixed(0)}`,
-                true);
+            const errItem = new PopupMenu.PopupBaseMenuItem({reactive: false, activate: false});
+            errItem.add_child(new St.Label({text: this._lastError}));
+            this.menu.addMenuItem(errItem);
+        } else if (!usage) {
+            const item = new PopupMenu.PopupBaseMenuItem({reactive: false, activate: false});
+            item.add_child(new St.Label({text: 'Loading usage…'}));
+            this.menu.addMenuItem(item);
         } else {
-            setRow('credits', '', '', false);
+            const fmtPct = (sec) => sec && sec.utilization != null
+                ? sec.utilization.toFixed(0) + ' %' : '—';
+            this._timeLabels = [];
+
+            const addDynamic = (label, fn) => {
+                const row = this._makeRow(label, fn());
+                this.menu.addMenuItem(row.item);
+                this._timeLabels.push({label: row.valueLabel, updater: fn});
+            };
+
+            if (usage.five_hour) {
+                addDynamic('Session', () =>
+                    `${fmtPct(usage.five_hour)}  ·  resets ${this._formatResetIn(usage.five_hour.resets_at)}`);
+            }
+            if (usage.seven_day) {
+                addDynamic('Week (all)', () =>
+                    `${fmtPct(usage.seven_day)}  ·  resets ${this._formatResetIn(usage.seven_day.resets_at)}`);
+            }
+            if (usage.seven_day_sonnet) {
+                addDynamic('Week (Sonnet)', () =>
+                    `${fmtPct(usage.seven_day_sonnet)}  ·  resets ${this._formatResetIn(usage.seven_day_sonnet.resets_at)}`);
+            }
+            if (usage.seven_day_opus) {
+                addDynamic('Week (Opus)', () =>
+                    `${fmtPct(usage.seven_day_opus)}  ·  resets ${this._formatResetIn(usage.seven_day_opus.resets_at)}`);
+            }
+            const ex = usage.extra_usage;
+            if (ex && ex.is_enabled) {
+                const cur = ex.currency || 'USD';
+                const symbol = cur === 'EUR' ? '€' : cur === 'USD' ? '$' : (cur + ' ');
+                const used = (ex.used_credits / 100).toFixed(2);
+                const limit = (ex.monthly_limit / 100).toFixed(0);
+                this.menu.addMenuItem(this._makeRow('Credits',
+                    `${fmtPct(ex)}  ·  ${symbol}${used} / ${symbol}${limit}`).item);
+            }
         }
+
+        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+
+        // Footer: "Updated X ago · next in Y" — updates live every second
+        const footerItem = new PopupMenu.PopupBaseMenuItem({reactive: false, activate: false});
+        const footerLabel = new St.Label({text: this._footerText(), style_class: 'clawd-popup-row-label'});
+        footerItem.add_child(footerLabel);
+        this.menu.addMenuItem(footerItem);
+        if (!this._timeLabels) this._timeLabels = [];
+        this._timeLabels.push({label: footerLabel, updater: () => this._footerText()});
+
+        // Refresh button — shown when cache is stale and we're not rate-limited
+        const stale = !this._lastUpdated ||
+            (Date.now() - this._lastUpdated) > (4 * 60 * 1000);
+        if (stale && this._rateLimitedUntil < Date.now()) {
+            const refreshItem = new PopupMenu.PopupMenuItem('Refresh now');
+            refreshItem.connect('activate', () => this._refresh());
+            this.menu.addMenuItem(refreshItem);
+        }
+
+        // Playground (dev mode) gets re-added after each rebuild.
+        this._playgroundItem = null;
+        this._rebuildPlaygroundMenu();
+
+        if (this._barArea) this._barArea.queue_repaint();
     }
 
     destroy() {
