@@ -750,10 +750,15 @@ export default class ClawdExtension extends Extension {
     }
 
     _buildLockOverlay() {
-        // With the shared grid now at ROWS=12 (was 6), use square cells so
-        // 6-row clawd renders at the original 1:2 cell aspect (its own cellH
-        // ends up = 2*LOCK_XUNIT via drawClawd's per-form cellH math).
-        const LOCK_XUNIT = 5, LOCK_YUNIT = 5;
+        // Resolution-adaptive: target ~5% of monitor width for Clawd's body,
+        // floored to ≥4 px per cell so HiDPI 4K stays readable and a tiny VM
+        // window doesn't try to render at zero pixels. Square cells (yUnit =
+        // xUnit) so 6-row clawd renders at 1:2 cell aspect via drawClawd's
+        // per-form cellH math (its cellH = 2*LOCK_XUNIT).
+        const monitor = Main.layoutManager.primaryMonitor;
+        const monitorW = monitor ? monitor.width : 1920;
+        const LOCK_XUNIT = Math.max(4, Math.floor(monitorW * 0.05 / COLS));
+        const LOCK_YUNIT = LOCK_XUNIT;
         const padX = 4 * LOCK_XUNIT;
         const cw = LOCK_XUNIT * COLS + 2 * padX;
         const ch = LOCK_YUNIT * ROWS;
@@ -820,7 +825,10 @@ export default class ClawdExtension extends Extension {
             });
             this._positionBottomChrome();
             this._monitorsChangedId = Main.layoutManager.connect(
-                'monitors-changed', () => this._positionBottomChrome());
+                'monitors-changed', () => {
+                    // Rebuild so LOCK_XUNIT picks up the new monitor width.
+                    this._rebuildLockChrome();
+                });
             this._bottomChrome.connect('notify::height',
                 () => this._positionBottomChrome());
         } else {
