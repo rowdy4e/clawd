@@ -33,7 +33,8 @@ MESSAGES_FILE = os.path.expanduser("~/.config/clawd-lockscreen/messages")
 SIZE_FILE = os.path.expanduser("~/.config/clawd-lockscreen/size-percent")
 
 # Target: Clawd's body width ≈ TARGET_WIDTH_RATIO of monitor width.
-TARGET_WIDTH_RATIO = 0.10
+# Matches the GNOME extension's _buildLockOverlay default (~5 %).
+TARGET_WIDTH_RATIO = 0.05
 
 
 def _is_lockscreen_enabled():
