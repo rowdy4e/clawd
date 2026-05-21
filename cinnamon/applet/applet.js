@@ -1191,9 +1191,27 @@ class ClaudeUsageApplet extends Applet.Applet {
         }
     }
 
-    // Settings button — overwrites the messages file with the built-in
-    // defaults. File monitor catches the change and restarts the screensaver.
+    // Settings button — confirm, then overwrite the messages file with
+    // built-in defaults. File monitor catches the change and restarts the
+    // screensaver.
     resetLockscreenMessages() {
+        try {
+            const ModalDialog = imports.ui.modalDialog;
+            let dialog = new ModalDialog.ConfirmDialog(
+                "Reset lock-screen messages to the bundled defaults?\n" +
+                "All your custom edits will be lost.",
+                () => this._writeDefaultMessages()
+            );
+            dialog.open();
+        } catch (e) {
+            // Confirm dialog unavailable (older Cinnamon?) — fall back to
+            // direct reset rather than silently failing.
+            global.log && global.log("Clawd: confirm dialog failed: " + e.toString());
+            this._writeDefaultMessages();
+        }
+    }
+
+    _writeDefaultMessages() {
         try {
             GLib.mkdir_with_parents(LOCKSCREEN_CONFIG_DIR, parseInt("755", 8));
             GLib.file_set_contents(LOCKSCREEN_MESSAGES_FILE,
