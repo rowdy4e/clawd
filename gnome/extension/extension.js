@@ -750,7 +750,10 @@ export default class ClawdExtension extends Extension {
     }
 
     _buildLockOverlay() {
-        const LOCK_YUNIT = 10, LOCK_XUNIT = 5;
+        // With the shared grid now at ROWS=12 (was 6), use square cells so
+        // 6-row clawd renders at the original 1:2 cell aspect (its own cellH
+        // ends up = 2*LOCK_XUNIT via drawClawd's per-form cellH math).
+        const LOCK_XUNIT = 5, LOCK_YUNIT = 5;
         const padX = 4 * LOCK_XUNIT;
         const cw = LOCK_XUNIT * COLS + 2 * padX;
         const ch = LOCK_YUNIT * ROWS;
