@@ -1,131 +1,162 @@
-# Clawd — Claude Code usage applet for Cinnamon
+# Clawd — Claude Code usage mascot
 
-Animated pixel-art mascot ([Clawd](https://www.claudeclawd.fun/)) that lives in
-your Cinnamon panel and shows real-time Claude Code subscription usage —
-session %, weekly %, extra credits — pulled from Anthropic's `/api/oauth/usage`
-endpoint using your existing Claude Code OAuth token.
+Animated pixel-art mascot ([Clawd](https://www.claudeclawd.fun/)) that lives
+in your panel and shows real-time Claude Code subscription usage — session %,
+weekly %, extra credits — pulled from Anthropic's `/api/oauth/usage` endpoint
+using your existing Claude Code OAuth token.
 
-Optionally also appears on the **lock screen**, with the same animations plus
-a "grow" easter egg and rotating speech-bubble messages.
+Two implementations sharing the same forms + animation library:
+
+- **Cinnamon** — panel applet (GJS) + optional lock-screen widget (Python)
+- **GNOME Shell** (45+) — top-bar extension
 
 ## Features
 
-**Panel applet:**
 - Real subscription usage from Anthropic (not theoretical API rates)
 - Progress bar in popup menu: session / week / week-Sonnet / extra credits
-- Auto-refresh every 5 min with exponential back-off on HTTP 429
-- "Last updated / next in X" live timestamps in the menu
-- Animated pixel-art Clawd:
-  - 10 morph forms (heart, ghost, octopus, sparkle, blob, pacman, invader,
-    crown, skull) with per-form colors
-  - Idle animations: bounce, wiggle, squish, shake, tilt, walk, wink, yawn,
-    lookAround, morph, glitch
-  - Breath, blink with proper eyelid line
-  - Animation playground in menu (Configure → "Show animation playground")
-- Resolution-adaptive pixel size on the lock screen
-- All animations skipped when the actor isn't on-screen (zero CPU when hidden)
+- Auto-refresh every ~8 min with exponential back-off on HTTP 429
+- "Last updated / next in X" live timestamps
+- 22+ multi-color pixel-art forms (clawd, ghost, octopus, sparkle, blob,
+  pacman, invader, crown, skull, mushroom, pokeball, kirby, snorlax, amongus,
+  slime, penguin, jack_o_lantern, cat, gem, ufo, snowman, heart, …)
+- Declarative animation DSL (bounce, wiggle, squish, shake, tilt, walk,
+  excited, morph, glitch, wink, yawn, lookAround, rainbow, grow)
+- Per-form palette + row count (chunky 6-row Clawd, fine 12-row newer forms)
+- Animation playground in menu (Configure → Show animation playground)
+- All animations skipped when the actor isn't on-screen (zero CPU)
 
-**Lock screen widget** (optional, fully user-space — no sudo):
+**Cinnamon lock screen** (optional, fully user-space — no sudo):
 - Same animations as panel
 - Rare "grow" easter egg (Clawd briefly fills the screen)
-- Random speech-bubble messages (memes / wisdom / jokes)
-- Toggle on/off from the panel applet — auto-restarts screensaver if not locked
+- Random speech-bubble messages (memes / wisdom / jokes), editable from the
+  applet settings ("Edit lock-screen messages…" button)
+- Toggle on/off — auto-restarts screensaver
+
+**GNOME lock screen:** not implemented. GNOME 50+ Wayland's compositor
+lock surface bypasses extension actors.
 
 ## Install
 
-Single entry point that detects your desktop:
+Top-level entry point detects your desktop and delegates:
 
 ```bash
-./install.sh             # interactive — asks what to install
-./install.sh --auto      # install everything matching the detected DE
+./install.sh                # interactive — asks what to install
+./install.sh --auto         # install everything matching the detected DE
 ```
 
-…or pick a piece manually:
+…or run the per-DE installer directly:
 
 ```bash
-./install.sh --applet        # Cinnamon panel applet
-./install.sh --lockscreen    # Cinnamon lock-screen widget
-./install.sh --gnome         # GNOME Shell extension
+bash cinnamon/install.sh --auto      # both applet + lock-screen widget
+bash cinnamon/install.sh --applet    # just the panel applet
+bash gnome/install.sh    --auto      # GNOME Shell extension
 ```
 
 ### After install
 
 **Cinnamon:**
 - Right-click the panel → Applets → enable "Claude Usage"
-- For lock-screen: `pkill -f /usr/share/cinnamon-screensaver/cinnamon-screensaver-main`
-  (it auto-respawns and picks up the new widget)
+- For the lock-screen widget:
+  `pkill -f /usr/share/cinnamon-screensaver/cinnamon-screensaver-main`
+  (it auto-respawns and picks up the new widget on next lock)
 
 **GNOME Shell (45+):**
 - Log out + log back in, then `gnome-extensions enable clawd@rowdy4e`
-- Same Clawd, same animations as the Cinnamon applet. Tested on shell
-  versions 45, 46, 47, 48. Lock-screen port not yet done.
+- Open prefs: `gnome-extensions prefs clawd@rowdy4e`
 
 ## Architecture
 
 ```
-clawd-cinnamon/
+clawd/
+├── shared/                       # single source of truth — both
+│   ├── forms.json                #   implementations install these
+│   └── animations.json
 ├── cinnamon/
-│   ├── applet/                 # Cinnamon GJS panel applet
+│   ├── applet/
 │   │   ├── applet.js
-│   │   ├── metadata.json
+│   │   ├── anim_runner.js        # DSL interpreter (GJS)
 │   │   ├── settings-schema.json
-│   │   ├── stylesheet.css
-│   │   └── fetch-usage.sh      # Calls /api/oauth/usage
-│   ├── lockscreen/             # cinnamon-screensaver hook (no sudo)
-│   │   ├── usercustomize.py
-│   │   └── clawd_widget_user.py
-│   └── install.sh              # Installs both Cinnamon pieces
-├── gnome/
-│   ├── extension/              # GNOME Shell extension (45+)
-│   │   ├── extension.js
-│   │   ├── metadata.json
-│   │   ├── stylesheet.css
 │   │   └── fetch-usage.sh
+│   ├── lockscreen/
+│   │   ├── usercustomize.py      # site-customize hook (no sudo)
+│   │   ├── clawd_widget_user.py
+│   │   └── anim_runner.py        # DSL interpreter (Python)
 │   └── install.sh
-└── install.sh                  # Top-level: detects DE, delegates
+├── gnome/
+│   ├── extension/
+│   │   ├── extension.js
+│   │   ├── anim_runner.js        # DSL interpreter (ES module)
+│   │   ├── clawd-core.js         # loads forms.json + animations.json
+│   │   ├── prefs.js
+│   │   └── schemas/
+│   └── install.sh
+└── install.sh                    # top-level: detects DE, delegates
 ```
 
-### Lock screen integration without sudo
+`shared/forms.json` and `shared/animations.json` are the **canonical** data
+files. Both install scripts copy them into their respective target directories
+alongside the runtime code.
+
+### Form data (`shared/forms.json`)
+
+Each form declares its pixel art, color(s), and optional metadata:
+
+```json
+"snowman": {
+  "color": [0.97, 0.97, 0.97],
+  "palette": {
+    "W": [0.97, 0.97, 0.97],
+    "K": [0.05, 0.05, 0.05],
+    "O": [0.95, 0.55, 0.10],
+    "S": [0.85, 0.15, 0.15]
+  },
+  "pixels": [ "..", "....KKKKKKKKKK....", … ]
+}
+```
+
+- `color` — default body color (used when no `palette` is set)
+- `palette` — per-glyph colors; any non-`O/E/F/.` glyph in pixels picks here
+- `rows` — optional, defaults to `pixels.length`. Per-form row count lets
+  chunky Clawd stay 6-row while newer detailed forms can be 12+ rows
+- `contexts` — optional `["panel"]` / `["lockscreen"]` to restrict where the
+  form is available (e.g. HD lockscreen-only variants)
+- `eye_row` / `mouth_row` / `pivot_row` — optional explicit positions
+
+### Animation DSL (`shared/animations.json`)
+
+Declarative tween scripts:
+
+```json
+"bounce": [
+  {"tween": "body_y", "to": -10, "ms": 180, "ease": "ease_out_quad"},
+  {"tween": "body_y", "to": 0,   "ms": 400, "ease": "ease_out_bounce"}
+]
+```
+
+Primitives: `tween`, `tween_many`, `delay`, `set`, `repeat`, `sequence`,
+`parallel`. Value generators: `random_pick`, `random_from`, `random_range`,
+`iter_pick`, `ref`. Easter-egg tagging via top-level `tags` map.
+
+### Cinnamon lock screen — no-sudo hook
 
 `cinnamon-screensaver-main.py` is a regular Python script. We install
 `usercustomize.py` into the user's site-packages so Python imports it at
 startup. It checks `sys.argv[0]`, and if we're inside cinnamon-screensaver
-it registers a meta-path finder. When that process imports the `stage`
-module, the finder monkey-patches `Stage.setup_clawd` (and wraps
-`setup_delayed_components` as a safety net) to instantiate our `ClawdWidget`.
-For any other Python program the hook is a no-op.
+it registers a meta-path finder that monkey-patches `Stage.setup_clawd` to
+instantiate our `ClawdWidget`. For any other Python program the hook is a
+no-op.
 
-### Configuration
-
-The panel applet writes the lock-screen toggle to
-`~/.config/clawd-lockscreen/enabled`. The widget reads that file on each
-screensaver start.
-
-The applet also restarts cinnamon-screensaver (async, never blocks the
-Cinnamon main thread) when the toggle changes — but only if it's not
-currently locked.
+The applet writes lock-screen state to `~/.config/clawd-lockscreen/{enabled,messages}`.
+A Gio.FileMonitor on `messages` restarts the screensaver when the user edits
+the message list (button in applet settings).
 
 ## Requirements
 
-- **Cinnamon desktop environment** (any distro)
-- Python 3 + GTK 3 (already installed by Cinnamon)
-- A Claude Code session — credentials are read from `~/.claude/.credentials.json`
+- **Cinnamon** ≥ 6 OR **GNOME Shell** 45–50
+- Python 3 + GTK 3 (already installed by Cinnamon — Cinnamon side only)
+- A Claude Code session — credentials read from `~/.claude/.credentials.json`
 
 ## Distro compatibility
 
-Cinnamon-specific by design — works on **any distribution that ships the
-Cinnamon desktop environment**. Tested on Linux Mint 22.x (Cinnamon 6.6.7).
-
-| Distro | Status |
-|---|---|
-| Linux Mint Cinnamon | ✅ Tested |
-| Ubuntu Cinnamon Remix | ✅ Should work |
-| Fedora Cinnamon spin | ✅ Should work |
-| Debian + Cinnamon | ✅ Should work |
-| openSUSE + Cinnamon | ✅ Should work |
-| Arch + `cinnamon` AUR | ✅ Should work |
-| **Anything without Cinnamon (GNOME, KDE, XFCE, …)** | ❌ Won't load |
-
-Install scripts auto-detect the Python user-site directory
-(`python3 -c 'import site; print(site.USER_SITE)'`) so they're not tied
-to a specific Python version.
+Works on any distribution that ships Cinnamon or GNOME Shell 45+. Tested on
+Linux Mint 22.x (Cinnamon 6.6.7) and Ubuntu 26.04 (GNOME 50.1).

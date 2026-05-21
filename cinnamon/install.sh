@@ -7,13 +7,14 @@
 #   --uninstall-lockscreen  remove the lock-screen widget
 set -e
 HERE="$(cd "$(dirname "$0")" && pwd)"
+SHARED="$HERE/../shared"
 APPLET_UUID="claude-usage@rowdy4e"
 
 install_applet() {
     local dest="$HOME/.local/share/cinnamon/applets/$APPLET_UUID"
     mkdir -p "$dest"
     cp -v "$HERE/applet"/* "$dest/"
-    cp -v "$HERE/shared/"*.json "$dest/"
+    cp -v "$SHARED/"*.json "$dest/"
     chmod +x "$dest"/*.sh 2>/dev/null || true
     echo
     echo "Panel applet installed to $dest"
@@ -33,7 +34,7 @@ install_lockscreen() {
     cp -v "$HERE/lockscreen/usercustomize.py" "$pyuser/"
     cp -v "$HERE/lockscreen/clawd_widget_user.py" "$pyuser/"
     cp -v "$HERE/lockscreen/anim_runner.py" "$pyuser/"
-    cp -v "$HERE/shared/"*.json "$pyuser/"
+    cp -v "$SHARED/"*.json "$pyuser/"
     echo
     echo "Lock-screen widget installed to $pyuser"
     echo "Restart the screensaver to pick it up:"

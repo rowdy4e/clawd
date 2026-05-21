@@ -4,13 +4,17 @@
 #   --uninstall  remove
 set -e
 HERE="$(cd "$(dirname "$0")" && pwd)"
+SHARED="$HERE/../shared"
 UUID="clawd@rowdy4e"
 DEST="$HOME/.local/share/gnome-shell/extensions/$UUID"
 
 install_ext() {
     mkdir -p "$DEST"
-    # Copy files at top level (extension.js, prefs.js, metadata.json, stylesheet.css, fetch-usage.sh)
+    # Copy files at top level (extension.js, anim_runner.js, clawd-core.js,
+    # prefs.js, metadata.json, stylesheet.css, fetch-usage.sh).
     find "$HERE/extension" -maxdepth 1 -type f -exec cp -v {} "$DEST/" \;
+    # Plus the shared JSON assets from the repo root (forms + animations).
+    cp -v "$SHARED/"*.json "$DEST/"
     chmod +x "$DEST"/*.sh 2>/dev/null || true
 
     # Schemas: copy + compile so GSettings can find them
