@@ -213,19 +213,38 @@ class ClawdIndicator extends PanelMenu.Button {
     }
 
     // Right-click on the panel button → open preferences directly.
-    // PanelMenu.Button.vfunc_event toggles the menu on every BUTTON_PRESS,
-    // so a signal-level button-press-event handler can't intercept in time —
-    // overriding the vfunc is the only reliable hook. Mirrors Cinnamon's
-    // right-click → Configure UX.
+    // PanelMenu.Button.vfunc_event normally toggles the menu on every
+    // BUTTON_PRESS; we intercept BUTTON_SECONDARY (== 3) before super so the
+    // menu never opens. Mirrors Cinnamon's right-click → Configure UX.
     vfunc_event(event) {
         if (event.type() === Clutter.EventType.BUTTON_PRESS &&
-            event.get_button() === Clutter.BUTTON_SECONDARY) {
-            if (this.menu.isOpen) this.menu.close();
-            try { this._extension.openPreferences(); }
-            catch (e) { console.warn('Clawd: openPreferences failed: ' + e); }
+            event.get_button() === 3) {
+            console.warn('[Clawd] right-click on indicator → openPreferences');
+            this._openPrefs();
             return Clutter.EVENT_STOP;
         }
         return super.vfunc_event(event);
+    }
+
+    _openPrefs() {
+        if (this.menu && this.menu.isOpen) this.menu.close();
+        // Try the Extension instance method first (GNOME 45+).
+        try {
+            if (this._extension && typeof this._extension.openPreferences === 'function') {
+                this._extension.openPreferences();
+                return;
+            }
+        } catch (e) {
+            console.warn('[Clawd] openPreferences threw: ' + e);
+        }
+        // Fallback: spawn the CLI. Works on any GNOME version.
+        try {
+            Gio.Subprocess.new(
+                ['gnome-extensions', 'prefs', 'clawd@rowdy4e'],
+                Gio.SubprocessFlags.NONE);
+        } catch (e) {
+            console.warn('[Clawd] gnome-extensions prefs spawn failed: ' + e);
+        }
     }
 
     // ─── Animation tick ───
