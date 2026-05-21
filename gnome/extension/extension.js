@@ -213,17 +213,27 @@ class ClawdIndicator extends PanelMenu.Button {
     }
 
     // Right-click on the panel button → open preferences directly.
-    // PanelMenu.Button.vfunc_event normally toggles the menu on every
-    // BUTTON_PRESS; we intercept BUTTON_SECONDARY (== 3) before super so the
-    // menu never opens. Mirrors Cinnamon's right-click → Configure UX.
+    // Mirrors Cinnamon's right-click → Configure UX.
+    //
+    // GNOME 50 quirk: PanelMenu.Button no longer provides a vfunc_event
+    // override, so `super.vfunc_event(event)` throws for every dispatched
+    // event (motion, leave, etc.) — spamming the journal. We return
+    // EVENT_PROPAGATE for the non-intercepted case and let Clutter's
+    // default dispatching (signals on the actor, parent bubble) take it
+    // from there. The left-click menu still works because it's wired
+    // through a signal handler in PanelMenu.Button, not via vfunc.
     vfunc_event(event) {
-        if (event.type() === Clutter.EventType.BUTTON_PRESS &&
-            event.get_button() === 3) {
-            console.warn('[Clawd] right-click on indicator → openPreferences');
-            this._openPrefs();
-            return Clutter.EVENT_STOP;
+        try {
+            if (event.type() === Clutter.EventType.BUTTON_PRESS &&
+                event.get_button() === 3) {
+                console.warn('[Clawd] right-click on indicator → openPreferences');
+                this._openPrefs();
+                return Clutter.EVENT_STOP;
+            }
+        } catch (e) {
+            // Never let a thrown error here spam the log on every event.
         }
-        return super.vfunc_event(event);
+        return Clutter.EVENT_PROPAGATE;
     }
 
     _openPrefs() {
