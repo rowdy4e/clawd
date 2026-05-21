@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <enum id="org.gnome.shell.extensions.clawd.BarMode">
+    <value nick="session"      value="0"/>
+    <value nick="week"         value="1"/>
+    <value nick="week-sonnet"  value="2"/>
+    <value nick="credits"      value="3"/>
+  </enum>
+
+  <enum id="org.gnome.shell.extensions.clawd.AnimationStyle">
+    <value nick="random"   value="0"/>
+    <value nick="bounce"   value="1"/>
+    <value nick="wiggle"   value="2"/>
+    <value nick="squish"   value="3"/>
+    <value nick="spin"     value="4"/>
+    <value nick="shake"    value="5"/>
+    <value nick="tilt"     value="6"/>
+    <value nick="walk"     value="7"/>
+    <value nick="excited"  value="8"/>
+    <value nick="morph"    value="9"/>
+    <value nick="glitch"   value="10"/>
+    <value nick="rainbow"  value="11"/>
+  </enum>
+
+  <schema id="org.gnome.shell.extensions.clawd"
+          path="/org/gnome/shell/extensions/clawd/">
+    <key name="refresh-seconds" type="i">
+      <range min="60" max="7200"/>
+      <default>500</default>
+      <summary>Refresh interval (seconds)</summary>
+      <description>How often to query Anthropic /api/oauth/usage. Auto-backs-off on HTTP 429.</description>
+    </key>
+
+    <key name="bar-mode" enum="org.gnome.shell.extensions.clawd.BarMode">
+      <default>"session"</default>
+      <summary>What the progress bar shows</summary>
+      <description>session = 5h limit, week = all models, week-sonnet = Sonnet only, credits = extra credits</description>
+    </key>
+
+    <key name="animation-style" enum="org.gnome.shell.extensions.clawd.AnimationStyle">
+      <default>"random"</default>
+      <summary>Animation style</summary>
+      <description>Which animation to play. "random" rotates through all of them.</description>
+    </key>
+
+    <key name="animate-on-refresh" type="b">
+      <default>true</default>
+      <summary>Play an animation each time usage refreshes</summary>
+    </key>
+
+    <key name="idle-animations" type="b">
+      <default>true</default>
+      <summary>Random idle animations</summary>
+      <description>Clawd reacts on his own at random intervals when idle.</description>
+    </key>
+
+    <key name="idle-min-seconds" type="i">
+      <range min="3" max="600"/>
+      <default>12</default>
+      <summary>Minimum idle interval (seconds)</summary>
+    </key>
+
+    <key name="idle-max-seconds" type="i">
+      <range min="5" max="1200"/>
+      <default>22</default>
+      <summary>Maximum idle interval (seconds)</summary>
+    </key>
+
+    <key name="dev-mode" type="b">
+      <default>false</default>
+      <summary>Show animation playground in menu</summary>
+      <description>Adds a submenu that lets you trigger every animation and morph form by hand.</description>
+    </key>
+
+    <key name="lockscreen-enabled" type="b">
+      <default>true</default>
+      <summary>Show animated Clawd on the lock screen</summary>
+      <description>When enabled, an animated Clawd appears in the corner of the lock screen with a rotating speech bubble and a rare grow easter egg.</description>
+    </key>
+
+    <key name="lockscreen-position-bottom" type="b">
+      <default>true</default>
+      <summary>Place lockscreen Clawd at the bottom of the screen</summary>
+      <description>When true (default), the lockscreen Clawd appears at the bottom of the screen. When false, it appears just below the top panel.</description>
+    </key>
+  </schema>
+</schemalist>
