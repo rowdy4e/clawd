@@ -1,0 +1,10 @@
+{
+    "uuid": "clawd@rowdy4e",
+    "name": "Clawd — Claude Code usage",
+    "description": "Animated pixel-art Claude Code mascot in the top bar, with real subscription usage (session %, week %, credits) from /api/oauth/usage. Legacy build for GNOME 42–44.",
+    "shell-version": ["42", "43", "44"],
+    "session-modes": ["user", "unlock-dialog"],
+    "settings-schema": "org.gnome.shell.extensions.clawd",
+    "gettext-domain": "clawd",
+    "url": "https://github.com/rowdy4e/clawd-cinnamon"
+}

@@ -1,0 +1,55 @@
+.clawd-popup-header {
+    font-weight: bold;
+    padding: 6px 10px 4px 10px;
+}
+
+.clawd-popup-row {
+    padding: 2px 10px;
+    spacing: 12px;
+}
+
+.clawd-popup-row-label {
+    color: rgba(255, 255, 255, 0.65);
+    min-width: 90px;
+}
+
+.clawd-popup-row-value {
+    font-feature-settings: "tnum";
+}
+
+.clawd-popup-bar-container {
+    padding: 4px 10px 8px 10px;
+}
+
+.clawd-playground-row {
+    spacing: 6px;
+    padding: 2px 8px;
+}
+
+.clawd-playground-btn {
+    padding: 4px 8px;
+    border-radius: 3px;
+    background-color: rgba(255, 255, 255, 0.07);
+    color: inherit;
+    text-align: center;
+}
+
+.clawd-playground-btn:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+.clawd-playground-btn:active {
+    background-color: rgba(255, 255, 255, 0.25);
+}
+
+.clawd-lock-bubble {
+    background-color: rgba(20, 24, 32, 0.92);
+    border: 3px solid rgb(217, 119, 87);
+    color: rgb(245, 224, 200);
+    font-family: "Press Start 2P", "VT323", "PixelOperator", "Monaco", "DejaVu Sans Mono", monospace;
+    font-weight: bold;
+    font-size: 11px;
+    padding: 9px 14px;
+    margin-top: 16px;
+    max-width: 440px;
+}
