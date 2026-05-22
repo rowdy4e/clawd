@@ -166,9 +166,16 @@ function _openMessagesEditor() {
         if (!GLib.file_test(LOCKSCREEN_MESSAGES_FILE, GLib.FileTest.EXISTS)) {
             _writeDefaultMessages();
         }
-        Gio.Subprocess.new(['xdg-open', LOCKSCREEN_MESSAGES_FILE], Gio.SubprocessFlags.NONE);
+        const uri = GLib.filename_to_uri(LOCKSCREEN_MESSAGES_FILE, null);
+        // GIO default-app launch — no dependency on the xdg-open binary.
+        Gio.AppInfo.launch_default_for_uri(uri, null);
     } catch (e) {
-        console.warn('Clawd: open messages editor failed: ' + e);
+        // Fall back to xdg-open if no GIO default handler is registered.
+        try {
+            Gio.Subprocess.new(['xdg-open', LOCKSCREEN_MESSAGES_FILE], Gio.SubprocessFlags.NONE);
+        } catch (e2) {
+            console.warn('Clawd: open messages editor failed: ' + e2);
+        }
     }
 }
 
