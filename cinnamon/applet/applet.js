@@ -9,7 +9,7 @@ const St = imports.gi.St;
 const Clutter = imports.gi.Clutter;
 const Cairo = imports.cairo;
 
-const APPLET_DIR = GLib.get_home_dir() + "/.local/share/cinnamon/applets/claude-usage@rowdy4e";
+const APPLET_DIR = GLib.get_home_dir() + "/.local/share/cinnamon/applets/clawd@rowdy4e";
 const LOCKSCREEN_CONFIG_DIR = GLib.get_home_dir() + "/.config/clawd-lockscreen";
 const LOCKSCREEN_MESSAGES_FILE = LOCKSCREEN_CONFIG_DIR + "/messages";
 const LOCKSCREEN_SIZE_FILE = LOCKSCREEN_CONFIG_DIR + "/size-percent";
@@ -72,7 +72,7 @@ const MORPH_TARGETS = FORM_KEYS.filter(k =>
     k !== "clawd" && _formAllowsContext(FORMS[k], "panel"));
 
 // Pull in the shared animation interpreter (sibling file in the applet dir).
-const AnimRunnerModule = imports.ui.appletManager.applets["claude-usage@rowdy4e"].anim_runner;
+const AnimRunnerModule = imports.ui.appletManager.applets["clawd@rowdy4e"].anim_runner;
 const AnimationRunner = AnimRunnerModule.AnimationRunner;
 
 // Maps DSL snake_case keys to the camelCase keys used by our state object.
@@ -182,7 +182,7 @@ class ClaudeUsageApplet extends Applet.Applet {
         this.set_applet_tooltip("Claude usage");
         this.setAllowedLayout(Applet.AllowedLayout.HORIZONTAL);
 
-        this.settings = new Settings.AppletSettings(this, "claude-usage@rowdy4e", instanceId);
+        this.settings = new Settings.AppletSettings(this, "clawd@rowdy4e", instanceId);
         this.settings.bind("refreshSeconds", "refreshSeconds", this._reschedule.bind(this));
         this.settings.bind("barMode", "barMode", this._rebuildMenu.bind(this));
         this.settings.bind("animationStyle", "animationStyle", () => {});

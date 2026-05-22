@@ -8,7 +8,7 @@
 set -e
 HERE="$(cd "$(dirname "$0")" && pwd)"
 SHARED="$HERE/../shared"
-APPLET_UUID="claude-usage@rowdy4e"
+APPLET_UUID="clawd@rowdy4e"
 
 install_applet() {
     local dest="$HOME/.local/share/cinnamon/applets/$APPLET_UUID"
