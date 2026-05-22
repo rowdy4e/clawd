@@ -892,7 +892,7 @@ var ClawdExtension = class ClawdExtension {
         if (bottom) {
             this._bottomChrome = new St.BoxLayout({
                 name: 'clawdBottomChrome',
-                orientation: Clutter.Orientation.VERTICAL,
+                vertical: true,  // GNOME 42 St.BoxLayout uses `vertical`, not `orientation`
             });
             this._bottomChrome.add_child(this._lockBin);
             Main.layoutManager.addChrome(this._bottomChrome, {
