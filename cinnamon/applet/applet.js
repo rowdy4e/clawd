@@ -603,7 +603,12 @@ class ClaudeUsageApplet extends Applet.Applet {
     // panel during fullscreen apps / autohide / screen-off and we do nothing.
     _startBreathing() {
         if (this._breathTickId) return;
-        const TICK_MS = 80;        // ~12 fps — smooth slow motion
+        // Breath is a slow 4 s cycle and runs independently of animations
+        // (those repaint via Tweener), so a low cadence keeps the CPU asleep
+        // when idle — ~5 fps is imperceptible on a subtle breath, ~60% fewer
+        // wakeups than 80 ms. The actor.mapped check below already zeroes work
+        // when the panel is hidden.
+        const TICK_MS = 220;
         const PERIOD_MS = 4000;    // full inhale+exhale
         let startTime = Date.now();
         this._breathTickId = Mainloop.timeout_add(TICK_MS, () => {

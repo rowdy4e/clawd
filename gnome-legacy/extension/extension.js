@@ -184,14 +184,14 @@ class ClawdIndicator extends PanelMenu.Button {
         this._settingsHandlers.push(this._settings.connect('changed::bar-mode',
             () => this._rebuildMenu()));
 
-        // Animation loop: 80 ms tick (~12 FPS) — matches the Cinnamon applet.
-        // Pixel art doesn't need 30 FPS; 12 FPS keeps the breath smooth and
-        // is gentle on CPU.
-        this._tickIntervalMs = 80;
-        this._tickId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, this._tickIntervalMs, () => {
-            this._onTick();
-            return GLib.SOURCE_CONTINUE;
-        });
+        // Adaptive tick: animations run at ACTIVE_MS (~12 FPS, smooth), but
+        // when idle (only the slow breath cycle) we drop to IDLE_MS so the CPU
+        // can sleep — ~55% fewer wakeups, imperceptible on a slow 4 s breath.
+        this._activeTickMs = 80;
+        this._idleTickMs = 220;
+        this._tickIntervalMs = this._idleTickMs;
+        this._tickId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, this._tickIntervalMs,
+                                        () => this._onTick());
 
         // Periodic schedules
         this._scheduleBlink();
@@ -252,20 +252,33 @@ class ClawdIndicator extends PanelMenu.Button {
                 this._tweens = this._tweens.filter(tw => !tw.done);
             }
 
-            // Skip when breath barely moved AND nothing else animating.
-            const noVisibleChange = !hasTweens
-                && s.mouthVisible === 0 && s.walking === 0
-                && breathDelta < 0.003;
-            if (noVisibleChange) return;
+            // Active = a real animation is in flight (tween, talk, walk, anim).
+            // Breath alone counts as idle so we can throttle the tick.
+            const animating = hasTweens || s.mouthVisible > 0
+                || s.walking > 0 || this._animBusy;
 
-            if (this._clawd.mapped) this._clawd.queue_repaint();
-            if (this._coupledAreas) {
-                for (const a of this._coupledAreas) {
-                    if (a.mapped) try { a.queue_repaint(); } catch (e) {}
+            // Repaint unless nothing visibly changed (idle + breath flat).
+            if (animating || breathDelta >= 0.003) {
+                if (this._clawd.mapped) this._clawd.queue_repaint();
+                if (this._coupledAreas) {
+                    for (const a of this._coupledAreas) {
+                        if (a.mapped) try { a.queue_repaint(); } catch (e) {}
+                    }
                 }
             }
+
+            // Adaptive cadence: fast while animating, slow when only breathing.
+            const desired = animating ? this._activeTickMs : this._idleTickMs;
+            if (desired !== this._tickIntervalMs) {
+                this._tickIntervalMs = desired;
+                this._tickId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, desired,
+                                                () => this._onTick());
+                return GLib.SOURCE_REMOVE;  // old timer retires; new one armed
+            }
+            return GLib.SOURCE_CONTINUE;
         } catch (e) {
             logError(e, 'Clawd tick');
+            return GLib.SOURCE_CONTINUE;
         }
     }
 
