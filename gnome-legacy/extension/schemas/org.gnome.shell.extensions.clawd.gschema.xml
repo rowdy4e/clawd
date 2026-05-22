@@ -43,6 +43,12 @@
       <description>Which animation to play. "random" rotates through all of them.</description>
     </key>
 
+    <key name="animation-fps-mode" type="s">
+      <default>"balanced"</default>
+      <summary>Animation performance</summary>
+      <description>CPU vs smoothness trade-off: "saver" (lowest CPU), "balanced" (default), "smooth" (highest frame rate).</description>
+    </key>
+
     <key name="animate-on-refresh" type="b">
       <default>true</default>
       <summary>Play an animation each time usage refreshes</summary>

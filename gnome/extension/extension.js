@@ -187,13 +187,14 @@ class ClawdIndicator extends PanelMenu.Button {
             () => this._rebuildPlaygroundMenu()));
         this._settingsHandlers.push(this._settings.connect('changed::bar-mode',
             () => this._rebuildMenu()));
+        this._settingsHandlers.push(this._settings.connect('changed::animation-fps-mode',
+            () => this._applyFpsMode()));
 
-        // Animation loop: 80 ms tick (~12 FPS) — matches the Cinnamon applet.
-        // Adaptive tick: animations run at ACTIVE_MS (~12 FPS, smooth), but
-        // when idle (only the slow breath cycle) we drop to IDLE_MS so the CPU
-        // can sleep — ~55% fewer wakeups, imperceptible on a slow 4 s breath.
-        this._activeTickMs = 80;
-        this._idleTickMs = 220;
+        // Adaptive tick: animations run at ACTIVE_MS, but when idle (only the
+        // slow breath cycle) we drop to IDLE_MS so the CPU can sleep. Both
+        // intervals come from the user's animation-fps-mode setting. A changed
+        // mode just updates the fields; the next _onTick re-arms the timer.
+        this._applyFpsMode();
         this._tickIntervalMs = this._idleTickMs;
         this._tickId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, this._tickIntervalMs,
                                         () => this._onTick());
@@ -298,6 +299,20 @@ class ClawdIndicator extends PanelMenu.Button {
             const i = this._coupledAreas.indexOf(area);
             if (i >= 0) this._coupledAreas.splice(i, 1);
         });
+    }
+
+    // Map the animation-fps-mode setting to [activeMs, idleMs] tick cadences.
+    _applyFpsMode() {
+        const MODES = {
+            saver:    [120, 400],   // ~8 FPS active, ~2.5 FPS idle
+            balanced: [80, 220],    // ~12 FPS active, ~4.5 FPS idle (default)
+            smooth:   [50, 120],    // ~20 FPS active, ~8 FPS idle
+        };
+        const mode = this._settings
+            ? this._settings.get_string('animation-fps-mode') : 'balanced';
+        const [active, idle] = MODES[mode] || MODES.balanced;
+        this._activeTickMs = active;
+        this._idleTickMs = idle;
     }
 
     stopTick() {

@@ -15,7 +15,7 @@
         "animation": {
             "type": "section",
             "title": "Animation",
-            "keys": ["animationStyle", "animateOnRefresh", "idleAnimations", "idleMinSeconds", "idleMaxSeconds"]
+            "keys": ["animationStyle", "animationFpsMode", "animateOnRefresh", "idleAnimations", "idleMinSeconds", "idleMaxSeconds"]
         },
         "lockscreen": {
             "type": "section",
@@ -65,6 +65,16 @@
             "Morph": "morph",
             "Glitch": "glitch",
             "Rainbow (recolors Clawd!)": "rainbow"
+        }
+    },
+    "animationFpsMode": {
+        "type": "combobox",
+        "default": "balanced",
+        "description": "Animation performance (CPU vs smoothness)",
+        "options": {
+            "Power saver (least CPU)": "saver",
+            "Balanced": "balanced",
+            "Smooth (highest FPS)": "smooth"
         }
     },
     "animateOnRefresh": {

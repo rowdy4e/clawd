@@ -62,6 +62,12 @@ const BAR_LABELS = [
     ['credits',     'Extra credits'],
 ];
 
+const FPS_LABELS = [
+    ['saver',    'Power saver (least CPU)'],
+    ['balanced', 'Balanced'],
+    ['smooth',   'Smooth (highest FPS)'],
+];
+
 function buildComboRow(title, choices, settings, key) {
     const model = new Gtk.StringList();
     for (const [, label] of choices) model.append(label);
@@ -211,6 +217,7 @@ export default class ClawdPreferences extends ExtensionPreferences {
         // ─── Animation ───
         const animation = new Adw.PreferencesGroup({title: 'Animation'});
         animation.add(buildComboRow('Animation style', ANIMATION_LABELS, settings, 'animation-style'));
+        animation.add(buildComboRow('Animation performance', FPS_LABELS, settings, 'animation-fps-mode'));
         animation.add(buildSwitchRow(
             'Animate on refresh', 'Play an animation each time usage refreshes',
             settings, 'animate-on-refresh'));

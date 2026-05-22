@@ -186,6 +186,11 @@ class ClaudeUsageApplet extends Applet.Applet {
         this.settings.bind("refreshSeconds", "refreshSeconds", this._reschedule.bind(this));
         this.settings.bind("barMode", "barMode", this._rebuildMenu.bind(this));
         this.settings.bind("animationStyle", "animationStyle", () => {});
+        this.settings.bind("animationFpsMode", "animationFpsMode", () => {
+            // Re-arm the breath tick at the new cadence.
+            this._stopBreathing();
+            this._startBreathing();
+        });
         this.settings.bind("animateOnRefresh", "animateOnRefresh", () => {});
         this.settings.bind("idleAnimations", "idleAnimations", this._scheduleIdle.bind(this));
         this.settings.bind("idleMinSeconds", "idleMinSeconds", this._scheduleIdle.bind(this));
@@ -605,10 +610,11 @@ class ClaudeUsageApplet extends Applet.Applet {
         if (this._breathTickId) return;
         // Breath is a slow 4 s cycle and runs independently of animations
         // (those repaint via Tweener), so a low cadence keeps the CPU asleep
-        // when idle — ~5 fps is imperceptible on a subtle breath, ~60% fewer
-        // wakeups than 80 ms. The actor.mapped check below already zeroes work
-        // when the panel is hidden.
-        const TICK_MS = 220;
+        // when idle. The cadence comes from the animationFpsMode setting; even
+        // the smoothest is fine on a subtle breath. The actor.mapped check
+        // below already zeroes work when the panel is hidden.
+        const FPS_TICK = { saver: 400, balanced: 220, smooth: 120 };
+        const TICK_MS = FPS_TICK[this.animationFpsMode] || FPS_TICK.balanced;
         const PERIOD_MS = 4000;    // full inhale+exhale
         let startTime = Date.now();
         this._breathTickId = Mainloop.timeout_add(TICK_MS, () => {
