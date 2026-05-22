@@ -188,6 +188,13 @@ Works on any distribution that ships Cinnamon or GNOME Shell 42+. Tested on
 Linux Mint 22.x (Cinnamon 6.6.7), Ubuntu 22.04 (GNOME 42.9), Fedora 43
 (GNOME 49), and Ubuntu 26.04 (GNOME 50.1).
 
+## Credits
+
+- Created by [rowdy4e](https://github.com/rowdy4e).
+- Designed and built in pair-programming with **Claude** ([Claude Code](https://claude.com/claude-code)),
+  Anthropic's CLI coding agent — from the pixel-art renderer and animation DSL
+  to the Cinnamon/GNOME ports and the GNOME 42 legacy build.
+
 ## License
 
 [MIT](LICENSE) © rowdy4e
