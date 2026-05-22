@@ -6,5 +6,5 @@
     "session-modes": ["user", "unlock-dialog"],
     "settings-schema": "org.gnome.shell.extensions.clawd",
     "gettext-domain": "clawd",
-    "url": "https://github.com/rowdy4e/clawd-cinnamon"
+    "url": "https://github.com/rowdy4e/clawd"
 }
