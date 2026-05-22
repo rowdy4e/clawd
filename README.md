@@ -8,7 +8,13 @@ using your existing Claude Code OAuth token.
 Two implementations sharing the same forms + animation library:
 
 - **Cinnamon** — panel applet (GJS) + optional lock-screen widget (Python)
-- **GNOME Shell** (45+) — top-bar extension
+- **GNOME Shell 42–50** — top-bar extension (ESM build for 45+, legacy
+  `imports` build for 42–44)
+
+<p align="center">
+  <img src="assets/clawd-lockscreen.png" alt="Clawd on the GNOME lock screen" width="48%">
+  <img src="assets/clawd-settings.png" alt="Clawd settings" width="48%">
+</p>
 
 ## Features
 
@@ -23,6 +29,8 @@ Two implementations sharing the same forms + animation library:
   excited, morph, glitch, wink, yawn, lookAround, rainbow, grow)
 - Per-form palette + row count (chunky 6-row Clawd, fine 12-row newer forms)
 - Animation playground in menu (Configure → Show animation playground)
+- **Animation performance** setting — *Power saver / Balanced / Smooth* —
+  trades CPU wakeups against frame rate; idle tick throttles automatically
 - All animations skipped when the actor isn't on-screen (zero CPU)
 
 **Cinnamon lock screen** (optional, fully user-space — no sudo):
@@ -32,30 +40,39 @@ Two implementations sharing the same forms + animation library:
   applet settings ("Edit lock-screen messages…" button)
 - Toggle on/off — auto-restarts screensaver
 
-**GNOME lock screen:** not implemented. GNOME 50+ Wayland's compositor
-lock surface bypasses extension actors.
+**GNOME lock screen:** Clawd appears on the unlock dialog (rotating speech
+bubbles, configurable size, top/bottom position). Verified on GNOME 42 and 49.
 
 ## Install
 
-Top-level entry point detects your desktop and delegates:
+Top-level entry point detects your desktop — and, on GNOME, picks the right
+build from `gnome-shell --version`:
 
 ```bash
 ./install.sh                # interactive — asks what to install
 ./install.sh --auto         # install everything matching the detected DE
 ```
 
-…or run the per-DE installer directly:
+| Desktop            | Build           |
+|--------------------|-----------------|
+| Cinnamon           | `cinnamon/`     |
+| GNOME Shell 45–50  | `gnome/` (ESM)  |
+| GNOME Shell 42–44  | `gnome-legacy/` |
+
+…or force a target / run a per-DE installer directly:
 
 ```bash
-bash cinnamon/install.sh --auto      # both applet + lock-screen widget
-bash cinnamon/install.sh --applet    # just the panel applet
-bash gnome/install.sh    --auto      # GNOME Shell extension
+./install.sh --cinnamon --auto       # Cinnamon: applet + lock-screen widget
+./install.sh --gnome --auto          # GNOME: auto-pick build by version
+./install.sh --gnome-legacy --auto   # force the GNOME 42–44 build
+./install.sh --gnome-modern --auto   # force the GNOME 45+ build
+bash cinnamon/install.sh --applet    # just the Cinnamon panel applet
 ```
 
 ### After install
 
 **Cinnamon:**
-- Right-click the panel → Applets → enable "Claude Usage"
+- Right-click the panel → Applets → enable "Clawd — Claude Code usage"
 - For the lock-screen widget:
   `pkill -f /usr/share/cinnamon-screensaver/cinnamon-screensaver-main`
   (it auto-respawns and picks up the new widget on next lock)
@@ -82,7 +99,7 @@ clawd/
 │   │   ├── clawd_widget_user.py
 │   │   └── anim_runner.py        # DSL interpreter (Python)
 │   └── install.sh
-├── gnome/
+├── gnome/                        # GNOME Shell 45–50 (ESM)
 │   ├── extension/
 │   │   ├── extension.js
 │   │   ├── anim_runner.js        # DSL interpreter (ES module)
@@ -90,7 +107,11 @@ clawd/
 │   │   ├── prefs.js
 │   │   └── schemas/
 │   └── install.sh
-└── install.sh                    # top-level: detects DE, delegates
+├── gnome-legacy/                 # GNOME Shell 42–44 (legacy imports)
+│   ├── extension/                #   same logic, pre-45 module system
+│   └── install.sh
+├── assets/                       # README screenshots
+└── install.sh                    # top-level: detects DE + GNOME version
 ```
 
 `shared/forms.json` and `shared/animations.json` are the **canonical** data
@@ -152,11 +173,21 @@ the message list (button in applet settings).
 
 ## Requirements
 
-- **Cinnamon** ≥ 6 OR **GNOME Shell** 45–50
+- **Cinnamon** ≥ 6 OR **GNOME Shell** 42–50
 - Python 3 + GTK 3 (already installed by Cinnamon — Cinnamon side only)
 - A Claude Code session — credentials read from `~/.claude/.credentials.json`
 
+The usage endpoint (`/api/oauth/usage`) is **unofficial** — the same one the
+Claude Code CLI calls. Clawd only talks to `api.anthropic.com` with your own
+token; nothing is sent to any third party. The endpoint may change without
+notice.
+
 ## Distro compatibility
 
-Works on any distribution that ships Cinnamon or GNOME Shell 45+. Tested on
-Linux Mint 22.x (Cinnamon 6.6.7) and Ubuntu 26.04 (GNOME 50.1).
+Works on any distribution that ships Cinnamon or GNOME Shell 42+. Tested on
+Linux Mint 22.x (Cinnamon 6.6.7), Ubuntu 22.04 (GNOME 42.9), Fedora 43
+(GNOME 49), and Ubuntu 26.04 (GNOME 50.1).
+
+## License
+
+[MIT](LICENSE) © rowdy4e
