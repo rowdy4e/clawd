@@ -32,9 +32,8 @@ CONFIG_FILE = os.path.expanduser("~/.config/clawd-lockscreen/enabled")
 MESSAGES_FILE = os.path.expanduser("~/.config/clawd-lockscreen/messages")
 SIZE_FILE = os.path.expanduser("~/.config/clawd-lockscreen/size-percent")
 
-# Target: Clawd's body width ≈ TARGET_WIDTH_RATIO of monitor width at 100 %.
-# Matches the GNOME extension's _buildLockOverlay default (~10 %).
-TARGET_WIDTH_RATIO = 0.10
+# Clawd's body width spans `size-percent` percent of the monitor width
+# (10 = a tenth, default; 50 = half). Matches the GNOME extension.
 
 
 def _is_lockscreen_enabled():
@@ -46,13 +45,13 @@ def _is_lockscreen_enabled():
 
 
 def _load_size_percent():
-    """Returns the user-set lockscreen size percentage (50..400) or 100."""
+    """Returns the lockscreen size as percent of screen width (5..50) or 10."""
     try:
         with open(SIZE_FILE) as f:
             v = int(f.read().strip())
-            return max(50, min(400, v))
+            return max(5, min(50, v))
     except (IOError, OSError, ValueError):
-        return 100
+        return 10
 
 
 def _load_user_messages():
@@ -171,10 +170,10 @@ def _detect_pixel_size(initial_monitor):
             return (10, 20)
         geom = monitor.get_geometry()
         screen_w = geom.width or 1920
-        # bitmap_w = COLS * x_unit ≈ TARGET_WIDTH_RATIO * screen_w, with the
-        # user's size-percent setting layered on top.
-        scale = _load_size_percent() / 100.0
-        x_unit = max(4, int(round(TARGET_WIDTH_RATIO * screen_w * scale / COLS)))
+        # bitmap_w = COLS * x_unit ≈ (size-percent)% of screen_w, so the
+        # number directly means "fraction of screen width Clawd spans".
+        pct = _load_size_percent() / 100.0
+        x_unit = max(4, int(round(screen_w * pct / COLS)))
         # With ROWS=12, square cells keep the overall icon at the same
         # physical size as the original 6-row design (where y_unit = x_unit*2).
         y_unit = x_unit

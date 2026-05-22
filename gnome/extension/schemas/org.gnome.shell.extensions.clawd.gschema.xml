@@ -85,10 +85,10 @@
     </key>
 
     <key name="lockscreen-size-percent" type="i">
-      <range min="50" max="400"/>
-      <default>100</default>
-      <summary>Lock-screen Clawd size (percent)</summary>
-      <description>100 % = default size (~16 % of monitor width for the body). 50–400 % scales accordingly.</description>
+      <range min="5" max="50"/>
+      <default>10</default>
+      <summary>Lock-screen Clawd size (percent of screen width)</summary>
+      <description>How much of the monitor width Clawd's body spans: 10 = a tenth (default), 25 = a quarter, 50 = half.</description>
     </key>
   </schema>
 </schemalist>

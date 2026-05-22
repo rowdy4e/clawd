@@ -112,12 +112,12 @@
     },
     "lockscreenSizePercent": {
         "type": "spinbutton",
-        "default": 100,
-        "min": 50,
-        "max": 400,
-        "step": 10,
-        "units": "%",
-        "description": "Clawd size on the lock screen (100 % = default; higher = bigger)"
+        "default": 10,
+        "min": 5,
+        "max": 50,
+        "step": 1,
+        "units": "% of screen width",
+        "description": "How much of the screen width Clawd spans (10 = a tenth, 25 = a quarter, 50 = half)"
     },
     "editLockscreenMessages": {
         "type": "button",

@@ -816,18 +816,16 @@ export default class ClawdExtension extends Extension {
     }
 
     _buildLockOverlay() {
-        // Resolution-adaptive: at 100% Clawd's body is ~10% of monitor width,
-        // floored to ≥4 px per cell so HiDPI 4K stays readable and a tiny VM
-        // window doesn't try to render at zero pixels. User can override with
-        // the `lockscreen-size-percent` setting (50..400, default 100).
-        // Square cells (yUnit = xUnit) so 6-row clawd renders at 1:2 cell
-        // aspect via drawClawd's per-form cellH math.
+        // `lockscreen-size-percent` is the fraction of monitor width Clawd's
+        // body spans (10 = a tenth, default; 50 = half). Floored to ≥4 px per
+        // cell so HiDPI 4K stays readable and a tiny VM window doesn't render
+        // at zero pixels. Square cells (yUnit = xUnit).
         const monitor = Main.layoutManager.primaryMonitor;
         const monitorW = monitor ? monitor.width : 1920;
         const sizePercent = this._settings
-            ? Math.max(50, Math.min(400, this._settings.get_int('lockscreen-size-percent')))
-            : 100;
-        const LOCK_XUNIT = Math.max(4, Math.floor(monitorW * 0.10 * sizePercent / 100 / COLS));
+            ? Math.max(5, Math.min(50, this._settings.get_int('lockscreen-size-percent')))
+            : 10;
+        const LOCK_XUNIT = Math.max(4, Math.floor(monitorW * sizePercent / 100 / COLS));
         const LOCK_YUNIT = LOCK_XUNIT;
         const padX = 4 * LOCK_XUNIT;
         const cw = LOCK_XUNIT * COLS + 2 * padX;
