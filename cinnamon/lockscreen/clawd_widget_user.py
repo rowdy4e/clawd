@@ -32,9 +32,9 @@ CONFIG_FILE = os.path.expanduser("~/.config/clawd-lockscreen/enabled")
 MESSAGES_FILE = os.path.expanduser("~/.config/clawd-lockscreen/messages")
 SIZE_FILE = os.path.expanduser("~/.config/clawd-lockscreen/size-percent")
 
-# Target: Clawd's body width ≈ TARGET_WIDTH_RATIO of monitor width.
-# Matches the GNOME extension's _buildLockOverlay default (~5 %).
-TARGET_WIDTH_RATIO = 0.05
+# Target: Clawd's body width ≈ TARGET_WIDTH_RATIO of monitor width at 100 %.
+# Matches the GNOME extension's _buildLockOverlay default (~10 %).
+TARGET_WIDTH_RATIO = 0.10
 
 
 def _is_lockscreen_enabled():
@@ -46,11 +46,11 @@ def _is_lockscreen_enabled():
 
 
 def _load_size_percent():
-    """Returns the user-set lockscreen size percentage (50..200) or 100."""
+    """Returns the user-set lockscreen size percentage (50..400) or 100."""
     try:
         with open(SIZE_FILE) as f:
             v = int(f.read().strip())
-            return max(50, min(200, v))
+            return max(50, min(400, v))
     except (IOError, OSError, ValueError):
         return 100
 

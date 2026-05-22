@@ -114,10 +114,10 @@
         "type": "spinbutton",
         "default": 100,
         "min": 50,
-        "max": 200,
+        "max": 400,
         "step": 10,
         "units": "%",
-        "description": "Clawd size on the lock screen (100 % = auto-fit to monitor)"
+        "description": "Clawd size on the lock screen (100 % = default; higher = bigger)"
     },
     "editLockscreenMessages": {
         "type": "button",

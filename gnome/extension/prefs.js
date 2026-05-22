@@ -229,8 +229,8 @@ export default class ClawdPreferences extends ExtensionPreferences {
             'Off = anchor below the top panel instead',
             settings, 'lockscreen-position-bottom'));
         lock.add(buildSpinRow(
-            'Clawd size', 'Percentage — 100 % = auto-fit to monitor (~5 % of width)',
-            settings, 'lockscreen-size-percent', 50, 200, 10));
+            'Clawd size', '100 % = default size · higher = bigger, lower = smaller',
+            settings, 'lockscreen-size-percent', 50, 400, 10));
         lock.add(buildButtonRow(
             'Edit lock-screen messages…',
             'Speech bubbles Clawd shows on the lock screen (one per line).',
