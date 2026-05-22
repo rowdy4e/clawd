@@ -190,7 +190,6 @@ class ClaudeUsageApplet extends Applet.Applet {
         this.settings.bind("idleAnimations", "idleAnimations", this._scheduleIdle.bind(this));
         this.settings.bind("idleMinSeconds", "idleMinSeconds", this._scheduleIdle.bind(this));
         this.settings.bind("idleMaxSeconds", "idleMaxSeconds", this._scheduleIdle.bind(this));
-        this.settings.bind("usageScriptPath", "usageScriptPath", this._refresh.bind(this));
         this.settings.bind("devMode", "devMode", this._rebuildMenu.bind(this));
         this._lastLockscreenVal = null; // unknown on init — first call won't restart
         this._lastSizeVal = null;
@@ -1069,9 +1068,7 @@ class ClaudeUsageApplet extends Applet.Applet {
         if (Date.now() < this._rateLimitedUntil) {
             return;
         }
-        let path = this.usageScriptPath && this.usageScriptPath.length > 0
-            ? this.usageScriptPath
-            : APPLET_DIR + "/fetch-usage.sh";
+        let path = APPLET_DIR + "/fetch-usage.sh";
 
         try {
             let proc = Gio.Subprocess.new(

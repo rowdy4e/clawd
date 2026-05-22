@@ -25,7 +25,7 @@
         "advanced": {
             "type": "section",
             "title": "Advanced",
-            "keys": ["usageScriptPath", "devMode"]
+            "keys": ["devMode"]
         }
     },
     "refreshSeconds": {
@@ -95,11 +95,6 @@
         "units": "seconds",
         "description": "Idle animation — max interval"
     },
-    "usageScriptPath": {
-        "type": "entry",
-        "default": "",
-        "description": "Path to the usage fetch script (blank = use applet's fetch-usage.sh)"
-    },
     "devMode": {
         "type": "checkbox",
         "default": false,
@@ -116,7 +111,7 @@
         "min": 5,
         "max": 50,
         "step": 1,
-        "units": "% of screen width",
+        "units": "%",
         "description": "How much of the screen width Clawd spans (10 = a tenth, 25 = a quarter, 50 = half)"
     },
     "editLockscreenMessages": {
