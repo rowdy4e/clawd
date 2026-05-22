@@ -36,7 +36,11 @@ case "$HTTP_CODE" in
         exit 42
         ;;
     *)
-        echo "{\"error\":\"HTTP $HTTP_CODE\",\"httpCode\":$HTTP_CODE,\"body\":$(python3 -c 'import json,sys; print(json.dumps(open(sys.argv[1]).read()[:200]))' "$BODY_FILE" 2>/dev/null || echo '""')}"
+        # Normalise to a base-10 integer so a connection failure (curl emits
+        # "000") doesn't yield invalid JSON — "httpCode":000 has leading zeros,
+        # which JSON.parse rejects at column 33.
+        HTTP_NUM=$((10#${HTTP_CODE:-0}))
+        echo "{\"error\":\"HTTP $HTTP_NUM\",\"httpCode\":$HTTP_NUM,\"body\":$(python3 -c 'import json,sys; print(json.dumps(open(sys.argv[1]).read()[:200]))' "$BODY_FILE" 2>/dev/null || echo '""')}"
         exit 1
         ;;
 esac
