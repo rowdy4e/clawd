@@ -162,6 +162,7 @@ class ClawdIndicator extends PanelMenu.Button {
         // Usage state
         this._lastUsage = null;
         this._lastError = null;
+        this._authStale = false;
         this._lastUpdated = 0;
         this._rateLimitedUntil = 0;
         this._backoffSeconds = 0;
@@ -438,10 +439,17 @@ class ClawdIndicator extends PanelMenu.Button {
                             this._rateLimitedUntil = Date.now() + this._backoffSeconds * 1000;
                             this._lastError = "rate limited";
                         } else if (data.error) {
-                            this._lastError = data.error;
+                            if (data.httpCode === 401) {
+                                this._authStale = true;
+                                this._lastError = "Sign in expired — run `claude` in a terminal once. Usage will appear after that.";
+                            } else {
+                                this._authStale = false;
+                                this._lastError = data.error;
+                            }
                         } else {
                             this._lastUsage = data;
                             this._lastError = null;
+                            this._authStale = false;
                             this._lastUpdated = Date.now();
                             this._backoffSeconds = 0;
                             this._rateLimitedUntil = 0;
@@ -694,11 +702,13 @@ class ClawdIndicator extends PanelMenu.Button {
 
         // Header label
         const headerItem = new PopupMenu.PopupBaseMenuItem({reactive: false, activate: false});
-        const headerText = this._lastError
-            ? 'Claude Code — error'
-            : (usage
-                ? `Claude Code · ${pct}% ${this._barModeLabel()}`
-                : 'Claude Code · loading…');
+        const headerText = this._authStale
+            ? 'Claude Code · sign in expired'
+            : (this._lastError
+                ? 'Claude Code — error'
+                : (usage
+                    ? `Claude Code · ${pct}% ${this._barModeLabel()}`
+                    : 'Claude Code · loading…'));
         const header = new St.Label({text: headerText, style_class: 'clawd-popup-header'});
         headerItem.add_child(header);
         this.menu.addMenuItem(headerItem);

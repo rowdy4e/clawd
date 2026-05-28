@@ -308,6 +308,7 @@ class ClaudeUsageApplet extends Applet.Applet {
         this._blinkTimeout = null;
         this._lastUsage = null;     // parsed /api/oauth/usage response
         this._lastError = null;
+        this._authStale = false;    // HTTP 401 → soft "sign in expired" state, not an error
         this._lastUpdated = 0;      // ms of last successful fetch
         this._nextRefreshAt = 0;    // ms when next auto-refresh will fire
         this._rateLimitedUntil = 0; // ms; if Date.now() < this, skip fetches
@@ -914,11 +915,13 @@ class ClaudeUsageApplet extends Applet.Applet {
         let pct = Math.round(this._computePercent(usage) * 100);
 
         let headerItem = new PopupMenu.PopupBaseMenuItem({ reactive: false, activate: false });
-        let headerText = this._lastError
-            ? "Claude Code — error"
-            : (usage
-                ? "Claude Code · " + pct + "% " + this._barModeLabel()
-                : "Claude Code · loading…");
+        let headerText = this._authStale
+            ? "Claude Code · sign in expired"
+            : (this._lastError
+                ? "Claude Code — error"
+                : (usage
+                    ? "Claude Code · " + pct + "% " + this._barModeLabel()
+                    : "Claude Code · loading…"));
         let header = new St.Label({ text: headerText, style_class: "claude-usage-popup-header" });
         headerItem.addActor(header, { expand: true, span: -1 });
         this.menu.addMenuItem(headerItem);
@@ -1099,10 +1102,17 @@ class ClaudeUsageApplet extends Applet.Applet {
                             this._lastError = "rate limited — backing off " +
                                 Math.round(this._backoffSeconds / 60) + " min";
                         } else if (data && data.error) {
-                            this._lastError = data.error;
+                            if (data.httpCode === 401) {
+                                this._authStale = true;
+                                this._lastError = "Sign in expired — run `claude` in a terminal once. Usage will appear after that.";
+                            } else {
+                                this._authStale = false;
+                                this._lastError = data.error;
+                            }
                         } else {
                             this._lastUsage = data;
                             this._lastError = null;
+                            this._authStale = false;
                             this._lastUpdated = Date.now();
                             this._backoffSeconds = 0;
                             this._rateLimitedUntil = 0;
@@ -1136,6 +1146,10 @@ class ClaudeUsageApplet extends Applet.Applet {
     }
 
     _updateTooltip() {
+        if (this._authStale) {
+            this.set_applet_tooltip("Claude usage · sign in expired — run `claude` once");
+            return;
+        }
         if (this._lastError) {
             this.set_applet_tooltip("Claude usage — error: " + this._lastError);
             return;
