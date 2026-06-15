@@ -618,11 +618,17 @@ class ClaudeUsageApplet extends Applet.Applet {
         const TICK_MS = FPS_TICK[this.animationFpsMode] || FPS_TICK.balanced;
         const PERIOD_MS = 4000;    // full inhale+exhale
         let startTime = Date.now();
+        // Whole breath spans only ~3px and antialiasing is off, so most ticks
+        // re-rasterize to the identical bitmap. Skip the repaint unless the body
+        // actually moved ≥ half a pixel — pixel-identical output, ~half the redraws.
+        let breathPxSpan = 0.05 * ((this._yUnit || 4) * ROWS) + 0.5;
+        this._breathPx = -1;
         this._breathTickId = Mainloop.timeout_add(TICK_MS, () => {
             if (this.actor && this.actor.mapped === false) return true;
             let phase = ((Date.now() - startTime) % PERIOD_MS) / PERIOD_MS;
             this._state.breathT = (1 - Math.cos(phase * 2 * Math.PI)) / 2;
-            this._repaint();
+            let px = Math.round(this._state.breathT * breathPxSpan * 2);
+            if (px !== this._breathPx) { this._breathPx = px; this._repaint(); }
             return true;
         });
     }
@@ -782,6 +788,13 @@ class ClaudeUsageApplet extends Applet.Applet {
         let sec = this._utilSection(usage);
         if (!sec || sec.utilization == null) return 0;
         return Math.max(0, Math.min(1, sec.utilization / 100));
+    }
+
+    // Utilization of a section as a rounded integer string, or null when the
+    // section is missing / has no utilization (API sometimes returns null even
+    // when a section is "enabled" — guarding here avoids .toFixed() on null).
+    _utilPct(sec) {
+        return (sec && sec.utilization != null) ? sec.utilization.toFixed(0) : null;
     }
 
     _barModeLabel() {
@@ -948,7 +961,7 @@ class ClaudeUsageApplet extends Applet.Applet {
             item.addActor(lbl, { expand: true, span: -1 });
             this.menu.addMenuItem(item);
         } else {
-            let fmtPct = (sec) => sec && sec.utilization != null ? sec.utilization.toFixed(0) + " %" : "—";
+            let fmtPct = (sec) => { let v = this._utilPct(sec); return v != null ? v + " %" : "—"; };
             this._timeLabels = [];
 
             let addDynamic = (label, fn) => {
@@ -1160,10 +1173,13 @@ class ClaudeUsageApplet extends Applet.Applet {
             return;
         }
         let parts = [];
-        if (usage.five_hour) parts.push("session " + usage.five_hour.utilization.toFixed(0) + "%");
-        if (usage.seven_day) parts.push("week " + usage.seven_day.utilization.toFixed(0) + "%");
-        if (usage.extra_usage && usage.extra_usage.is_enabled)
-            parts.push("credits " + usage.extra_usage.utilization.toFixed(0) + "%");
+        let push = (label, sec) => {
+            let v = this._utilPct(sec);
+            if (v != null) parts.push(label + " " + v + "%");
+        };
+        push("session", usage.five_hour);
+        push("week", usage.seven_day);
+        if (usage.extra_usage && usage.extra_usage.is_enabled) push("credits", usage.extra_usage);
         this.set_applet_tooltip("Claude · " + parts.join(" · "));
     }
 
