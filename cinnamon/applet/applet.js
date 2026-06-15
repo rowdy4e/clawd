@@ -480,6 +480,10 @@ class ClaudeUsageApplet extends Applet.Applet {
         let breathScale = 1;
         let breathBob = 0;
         let pivotY = originY + pivotRow * cellH;
+        // Remember the foot row as a fraction of the canvas so the breath GPU
+        // transform (in _startBreathing) can scale top-down around the feet,
+        // not symmetrically around the centre.
+        this._breathPivotFrac = (h > 0) ? Math.max(0, Math.min(1, pivotY / h)) : 1;
         let applyBreath = () => {
             cr.translate(0, breathBob);
             cr.translate(0, pivotY);
@@ -619,7 +623,9 @@ class ClaudeUsageApplet extends Applet.Applet {
             let phase = ((Date.now() - startTime) % PERIOD_MS) / PERIOD_MS;
             let bt = (1 - Math.cos(phase * 2 * Math.PI)) / 2;
             this._state.breathT = bt;
-            // GPU transform around the actor centre (pivot 0.5,0.5) — no repaint.
+            // GPU transform, no repaint. Pivot at the foot row so the body
+            // compresses top-down with the feet anchored (not symmetric).
+            this._clawd.set_pivot_point(0.5, this._breathPivotFrac != null ? this._breathPivotFrac : 1);
             this._clawd.scale_y = 1 - bt * 0.05;
             this._clawd.translation_y = bt * 0.5;
             return true;
