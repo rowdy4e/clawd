@@ -475,10 +475,10 @@ class ClaudeUsageApplet extends Applet.Applet {
         // Make it accessible from the body draw block below
         this._lastDrawEyelids = drawEyelids;
 
-        // Breath transform — applies to body cells (non-F). Pivot at the foot
-        // row so feet stay anchored ("ground" them). Pivot row is per-form.
-        let breathScale = 1 - s.breathT * 0.05;
-        let breathBob = s.breathT * 0.5;
+        // Breath is now a GPU transform on the actor (see _startBreathing), so it
+        // is NOT redrawn here — keep these neutral to avoid applying it twice.
+        let breathScale = 1;
+        let breathBob = 0;
         let pivotY = originY + pivotRow * cellH;
         let applyBreath = () => {
             cr.translate(0, breathBob);
@@ -604,31 +604,24 @@ class ClaudeUsageApplet extends Applet.Applet {
     _repaint() { this._clawd.queue_repaint(); }
 
     // ───────── Animations ─────────
-    // Breathing — smooth (12 fps) when on-screen, zero work when off-screen.
-    // The `actor.mapped` check is the killer optimization: Cinnamon hides the
-    // panel during fullscreen apps / autohide / screen-off and we do nothing.
+    // Breathing — applied as a GPU transform on the actor (vertical scale + bob),
+    // NOT a Cairo redraw. So even running continuously it costs ~0 (the compositor
+    // just re-composites a cached texture). `actor.mapped` still zeroes work when
+    // the panel is hidden (fullscreen apps / autohide / screen-off).
     _startBreathing() {
         if (this._breathTickId) return;
-        // Breath is a slow 4 s cycle and runs independently of animations
-        // (those repaint via Tweener), so a low cadence keeps the CPU asleep
-        // when idle. The cadence comes from the animationFpsMode setting; even
-        // the smoothest is fine on a subtle breath. The actor.mapped check
-        // below already zeroes work when the panel is hidden.
         const FPS_TICK = { saver: 400, balanced: 220, smooth: 120 };
         const TICK_MS = FPS_TICK[this.animationFpsMode] || FPS_TICK.balanced;
         const PERIOD_MS = 4000;    // full inhale+exhale
         let startTime = Date.now();
-        // Whole breath spans only ~3px and antialiasing is off, so most ticks
-        // re-rasterize to the identical bitmap. Skip the repaint unless the body
-        // actually moved ≥ half a pixel — pixel-identical output, ~half the redraws.
-        let breathPxSpan = 0.05 * ((this._yUnit || 4) * ROWS) + 0.5;
-        this._breathPx = -1;
         this._breathTickId = Mainloop.timeout_add(TICK_MS, () => {
             if (this.actor && this.actor.mapped === false) return true;
             let phase = ((Date.now() - startTime) % PERIOD_MS) / PERIOD_MS;
-            this._state.breathT = (1 - Math.cos(phase * 2 * Math.PI)) / 2;
-            let px = Math.round(this._state.breathT * breathPxSpan * 2);
-            if (px !== this._breathPx) { this._breathPx = px; this._repaint(); }
+            let bt = (1 - Math.cos(phase * 2 * Math.PI)) / 2;
+            this._state.breathT = bt;
+            // GPU transform around the actor centre (pivot 0.5,0.5) — no repaint.
+            this._clawd.scale_y = 1 - bt * 0.05;
+            this._clawd.translation_y = bt * 0.5;
             return true;
         });
     }
@@ -638,6 +631,7 @@ class ClaudeUsageApplet extends Applet.Applet {
             Mainloop.source_remove(this._breathTickId);
             this._breathTickId = null;
         }
+        if (this._clawd) { this._clawd.scale_y = 1; this._clawd.translation_y = 0; }
     }
 
     _scheduleBlink() {
